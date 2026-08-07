@@ -91,29 +91,15 @@ impl RemoteExecRuntime {
         let request_id = Uuid::new_v4().to_string();
         self.record_started(&request_id, target, "check", None)?;
 
-        let transport = self.target_transport(target)?;
-        match self.transport.check(transport).await {
-            Ok(info) => {
-                self.record_finished(
-                    &request_id,
-                    target,
-                    "check",
-                    None,
-                    AuditCompletion::simple("success"),
-                )?;
-                Ok(info)
-            }
-            Err(error) => {
-                self.record_finished(
-                    &request_id,
-                    target,
-                    "check",
-                    None,
-                    AuditCompletion::simple("error"),
-                )?;
-                Err(error)
-            }
-        }
+        let result = self.check_target_inner(target).await;
+        self.record_finished(
+            &request_id,
+            target,
+            "check",
+            None,
+            AuditCompletion::simple(if result.is_ok() { "success" } else { "error" }),
+        )?;
+        result
     }
 
     pub async fn run_task(
@@ -213,11 +199,48 @@ impl RemoteExecRuntime {
         let request_id = Uuid::new_v4().to_string();
         self.record_started(&request_id, &target, "upload_file", None)?;
 
+        let result = self
+            .upload_file_inner(&target, local_path, remote_path, overwrite)
+            .await;
+        self.finish_transfer_audit(&request_id, &target, "upload_file", &result)?;
+        result
+    }
+
+    pub async fn download_file(
+        &self,
+        target: TargetId,
+        remote_path: String,
+        local_path: String,
+        overwrite: bool,
+    ) -> AppResult<TransferResult> {
+        let _permit = self.acquire().await?;
+        let request_id = Uuid::new_v4().to_string();
+        self.record_started(&request_id, &target, "download_file", None)?;
+
+        let result = self
+            .download_file_inner(&target, remote_path, local_path, overwrite)
+            .await;
+        self.finish_transfer_audit(&request_id, &target, "download_file", &result)?;
+        result
+    }
+
+    async fn check_target_inner(&self, target: &TargetId) -> AppResult<ConnectionInfo> {
+        let transport = self.target_transport(target)?;
+        self.transport.check(transport).await
+    }
+
+    async fn upload_file_inner(
+        &self,
+        target: &TargetId,
+        local_path: String,
+        remote_path: String,
+        overwrite: bool,
+    ) -> AppResult<TransferResult> {
         let local_path = authorize_existing_local_path(
             &local_path,
             &self.config.runtime.allowed_local_upload_roots,
         )?;
-        let policy = self.target_policy_for_transfer(&target)?;
+        let policy = self.target_policy_for_transfer(target)?;
         let max_bytes = policy.max_transfer_bytes.ok_or_else(|| {
             AppError::new(
                 ErrorCode::InvalidConfiguration,
@@ -235,32 +258,25 @@ impl RemoteExecRuntime {
             overwrite,
         };
 
-        let transport = self.target_transport(&target)?;
+        let transport = self.target_transport(target)?;
         let mut session = self.transport.connect(transport).await?;
-        let result = self
-            .file_transfer
+        self.file_transfer
             .upload(&mut session, &transfer, constraints)
-            .await;
-        self.finish_transfer_audit(&request_id, &target, "upload_file", &result)?;
-        result
+            .await
     }
 
-    pub async fn download_file(
+    async fn download_file_inner(
         &self,
-        target: TargetId,
+        target: &TargetId,
         remote_path: String,
         local_path: String,
         overwrite: bool,
     ) -> AppResult<TransferResult> {
-        let _permit = self.acquire().await?;
-        let request_id = Uuid::new_v4().to_string();
-        self.record_started(&request_id, &target, "download_file", None)?;
-
         let local_path = authorize_local_destination(
             &local_path,
             &self.config.runtime.allowed_local_download_roots,
         )?;
-        let policy = self.target_policy_for_transfer(&target)?;
+        let policy = self.target_policy_for_transfer(target)?;
         let max_bytes = policy.max_transfer_bytes.ok_or_else(|| {
             AppError::new(
                 ErrorCode::InvalidConfiguration,
@@ -278,14 +294,11 @@ impl RemoteExecRuntime {
             overwrite,
         };
 
-        let transport = self.target_transport(&target)?;
+        let transport = self.target_transport(target)?;
         let mut session = self.transport.connect(transport).await?;
-        let result = self
-            .file_transfer
+        self.file_transfer
             .download(&mut session, &transfer, constraints)
-            .await;
-        self.finish_transfer_audit(&request_id, &target, "download_file", &result)?;
-        result
+            .await
     }
 
     async fn acquire(&self) -> AppResult<OwnedSemaphorePermit> {
@@ -322,12 +335,26 @@ impl RemoteExecRuntime {
         operation: &str,
         result: &AppResult<TransferResult>,
     ) -> AppResult<()> {
+        let outcome = match result {
+            Ok(_) => "success",
+            Err(error)
+                if matches!(
+                    error.code,
+                    ErrorCode::TransferPathDenied
+                        | ErrorCode::TransferTooLarge
+                        | ErrorCode::DestinationExists
+                ) =>
+            {
+                "denied"
+            }
+            Err(_) => "error",
+        };
         self.record_finished(
             request_id,
             target,
             operation,
             None,
-            AuditCompletion::simple(if result.is_ok() { "success" } else { "error" }),
+            AuditCompletion::simple(outcome),
         )
     }
 
@@ -449,6 +476,16 @@ mod tests {
         let allowed = vec![root.path().to_string_lossy().into_owned()];
         let error =
             authorize_existing_local_path(outside.path().to_str().unwrap(), &allowed).unwrap_err();
+        assert_eq!(error.code, ErrorCode::TransferPathDenied);
+    }
+
+    #[test]
+    fn local_download_parent_outside_root_is_denied() {
+        let root = tempfile::tempdir().unwrap();
+        let outside = tempfile::tempdir().unwrap();
+        let destination = outside.path().join("download.bin");
+        let allowed = vec![root.path().to_string_lossy().into_owned()];
+        let error = authorize_local_destination(destination.to_str().unwrap(), &allowed).unwrap_err();
         assert_eq!(error.code, ErrorCode::TransferPathDenied);
     }
 }
