@@ -3,12 +3,13 @@
 //! This layer coordinates domain services. It does not execute SSH commands directly.
 
 use crate::domain::execution::ExecutionResult;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub struct TaskExecutionRequest {
     pub target: String,
     pub task: String,
-    pub parameters: std::collections::HashMap<String, String>,
+    pub parameters: HashMap<String, String>,
 }
 
 pub struct TaskExecutionService;
@@ -20,12 +21,20 @@ impl TaskExecutionService {
 
     /// Orchestration entry point.
     ///
-    /// Future implementation will compose:
-    /// Policy -> Validation -> Planning -> Executor -> Audit
+    /// Flow boundary:
+    /// Catalog -> Policy -> Validation -> Planning -> Executor -> Audit
+    ///
+    /// This service intentionally does not know SSH, SFTP, or shell details.
     pub async fn execute(
         &self,
         _request: TaskExecutionRequest,
-    ) -> Result<ExecutionResult, String> {
-        Err("task execution service is not wired yet".to_string())
+    ) -> Result<ExecutionResult, TaskExecutionError> {
+        Err(TaskExecutionError::NotWired)
     }
+}
+
+#[derive(Debug, thiserror::Error)]
+pub enum TaskExecutionError {
+    #[error("task execution pipeline is not wired yet")]
+    NotWired,
 }
