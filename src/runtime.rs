@@ -77,14 +77,8 @@ impl RemoteExecService {
                 return Err(app_error);
             }
         };
-        let operation = self.begin_operation(
-            request_id,
-            target,
-            "check_target",
-            None,
-            Vec::new(),
-            None,
-        )?;
+        let operation =
+            self.begin_operation(request_id, target, "check_target", None, Vec::new(), None)?;
 
         let result = SshTransport::new(EnvSecretProvider)
             .check(&target_config.transport)
@@ -236,14 +230,8 @@ impl RemoteExecService {
                 return Err(app_error);
             }
         };
-        let operation = self.begin_operation(
-            request_id,
-            target,
-            "upload_file",
-            None,
-            Vec::new(),
-            None,
-        )?;
+        let operation =
+            self.begin_operation(request_id, target, "upload_file", None, Vec::new(), None)?;
 
         let result = async {
             let transport = SshTransport::new(EnvSecretProvider);
@@ -330,14 +318,8 @@ impl RemoteExecService {
                 return Err(app_error);
             }
         };
-        let operation = self.begin_operation(
-            request_id,
-            target,
-            "download_file",
-            None,
-            Vec::new(),
-            None,
-        )?;
+        let operation =
+            self.begin_operation(request_id, target, "download_file", None, Vec::new(), None)?;
 
         let result = async {
             let transport = SshTransport::new(EnvSecretProvider);
