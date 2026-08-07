@@ -78,8 +78,6 @@ fn object_parameters(value: Value) -> AppResult<BTreeMap<String, Value>> {
 
 #[cfg(test)]
 mod tests {
-    use std::future::Future;
-
     use super::*;
     use crate::application::task_execution_service::{TaskExecutionOutcome, TaskExecutionRequest};
     use crate::domain::ExecutionResult;
@@ -87,27 +85,25 @@ mod tests {
     struct StubUseCase;
 
     impl TaskExecutionUseCase for StubUseCase {
-        fn execute(
+        async fn execute(
             &self,
             request: TaskExecutionRequest,
-        ) -> impl Future<Output = AppResult<TaskExecutionOutcome>> + Send {
-            async move {
-                assert_eq!(request.target, "test");
-                assert_eq!(request.task, "status");
-                Ok(TaskExecutionOutcome {
-                    execution_id: "exec-test".to_owned(),
-                    result: ExecutionResult {
-                        success: true,
-                        exit_code: Some(0),
-                        stdout: "ok".to_owned(),
-                        stderr: String::new(),
-                        duration_ms: 4,
-                        stdout_truncated: false,
-                        stderr_truncated: false,
-                    },
-                    audit_recorded: true,
-                })
-            }
+        ) -> AppResult<TaskExecutionOutcome> {
+            assert_eq!(request.target, "test");
+            assert_eq!(request.task, "status");
+            Ok(TaskExecutionOutcome {
+                execution_id: "exec-test".to_owned(),
+                result: ExecutionResult {
+                    success: true,
+                    exit_code: Some(0),
+                    stdout: "ok".to_owned(),
+                    stderr: String::new(),
+                    duration_ms: 4,
+                    stdout_truncated: false,
+                    stderr_truncated: false,
+                },
+                audit_recorded: true,
+            })
         }
     }
 
