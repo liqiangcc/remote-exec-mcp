@@ -1,9 +1,10 @@
 use std::collections::BTreeMap;
 
 use rmcp::{
-    handler::server::wrapper::Parameters, schemars::JsonSchema, tool, tool_router,
-    ErrorData as McpError,
+    handler::server::wrapper::Parameters, tool, tool_handler, tool_router, ErrorData as McpError,
+    ServerHandler,
 };
+use schemars::JsonSchema;
 use serde::Deserialize;
 use serde_json::{json, Value};
 
@@ -57,7 +58,7 @@ struct DownloadFileParams {
     overwrite: bool,
 }
 
-#[tool_router(server_handler)]
+#[tool_router]
 impl RemoteExecMcp {
     #[tool(description = "List configured remote targets. No network connection is made.")]
     async fn list_targets(&self) -> Result<String, McpError> {
@@ -177,6 +178,9 @@ impl RemoteExecMcp {
         to_json(&json!({ "bytes_transferred": result.bytes_transferred }))
     }
 }
+
+#[tool_handler]
+impl ServerHandler for RemoteExecMcp {}
 
 fn to_json(value: &impl serde::Serialize) -> Result<String, McpError> {
     serde_json::to_string_pretty(value)
