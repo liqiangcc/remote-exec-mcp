@@ -23,6 +23,30 @@ use crate::secret::EnvSecretProvider;
 use crate::transport::ssh::SshTransport;
 use crate::transport::{ConnectionInfo, Transport};
 
+struct AuditCompletion<'a> {
+    outcome: &'a str,
+    exit_code: Option<i32>,
+    duration_ms: Option<u128>,
+}
+
+impl<'a> AuditCompletion<'a> {
+    const fn simple(outcome: &'a str) -> Self {
+        Self {
+            outcome,
+            exit_code: None,
+            duration_ms: None,
+        }
+    }
+
+    const fn execution(outcome: &'a str, exit_code: Option<i32>, duration_ms: u128) -> Self {
+        Self {
+            outcome,
+            exit_code,
+            duration_ms: Some(duration_ms),
+        }
+    }
+}
+
 pub struct RemoteExecRuntime {
     config: Arc<Config>,
     transport: SshTransport<EnvSecretProvider>,
@@ -70,11 +94,23 @@ impl RemoteExecRuntime {
         let transport = self.target_transport(target)?;
         match self.transport.check(transport).await {
             Ok(info) => {
-                self.record_finished(&request_id, target, "check", None, "success", None, None)?;
+                self.record_finished(
+                    &request_id,
+                    target,
+                    "check",
+                    None,
+                    AuditCompletion::simple("success"),
+                )?;
                 Ok(info)
             }
             Err(error) => {
-                self.record_finished(&request_id, target, "check", None, "error", None, None)?;
+                self.record_finished(
+                    &request_id,
+                    target,
+                    "check",
+                    None,
+                    AuditCompletion::simple("error"),
+                )?;
                 Err(error)
             }
         }
@@ -104,9 +140,7 @@ impl RemoteExecRuntime {
                     &target,
                     "run_task",
                     Some(&task),
-                    "denied",
-                    None,
-                    None,
+                    AuditCompletion::simple("denied"),
                 )?;
                 return Err(error);
             }
@@ -121,9 +155,7 @@ impl RemoteExecRuntime {
                     &target,
                     "run_task",
                     Some(&task),
-                    "error",
-                    None,
-                    None,
+                    AuditCompletion::simple("error"),
                 )?;
                 return Err(error);
             }
@@ -153,9 +185,7 @@ impl RemoteExecRuntime {
                     &target,
                     "run_task",
                     Some(&task),
-                    outcome,
-                    result.exit_code,
-                    Some(result.duration_ms),
+                    AuditCompletion::execution(outcome, result.exit_code, result.duration_ms),
                 )?;
                 Ok(result)
             }
@@ -165,9 +195,7 @@ impl RemoteExecRuntime {
                     &target,
                     "run_task",
                     Some(&task),
-                    "error",
-                    None,
-                    None,
+                    AuditCompletion::simple("error"),
                 )?;
                 Err(error)
             }
@@ -299,9 +327,7 @@ impl RemoteExecRuntime {
             target,
             operation,
             None,
-            if result.is_ok() { "success" } else { "error" },
-            None,
-            None,
+            AuditCompletion::simple(if result.is_ok() { "success" } else { "error" }),
         )
     }
 
@@ -323,18 +349,16 @@ impl RemoteExecRuntime {
         target: &TargetId,
         operation: &str,
         task: Option<&str>,
-        outcome: &str,
-        exit_code: Option<i32>,
-        duration_ms: Option<u128>,
+        completion: AuditCompletion<'_>,
     ) -> AppResult<()> {
         self.audit.record(&AuditEvent::new(
             request_id,
             &target.0,
             operation,
             task,
-            outcome,
-            exit_code,
-            duration_ms,
+            completion.outcome,
+            completion.exit_code,
+            completion.duration_ms,
         ))
     }
 }
