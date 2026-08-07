@@ -17,6 +17,32 @@ The MCP server may receive incorrect, overly broad, or adversarial instructions 
 9. Audit attempted privileged operations.
 10. Keep security policy independent from transport/executor implementations.
 
+## MCP adapter boundary
+
+The MCP adapter is a protocol boundary, not a second execution engine. It defines tool schemas, maps stable application errors into MCP errors, and delegates operations to `RemoteExecService`.
+
+The stdio server reserves stdout for MCP protocol frames; diagnostic logging is written to stderr.
+
+`run_task` does not construct commands. It delegates through the existing application pipeline:
+
+```text
+MCP tool
+   -> RemoteExecService
+   -> catalog / policy
+   -> typed validation
+   -> planning
+   -> ExecutionPlan
+   -> CommandExecutor
+   -> SSH Session
+```
+
+`upload_file` and `download_file` require two independent path boundaries:
+
+- remote upload/download roots constrain paths on the SSH target;
+- local upload/download roots constrain paths on the host running the MCP server.
+
+The filesystem root cannot be configured as an allowed local transfer root. Local upload sources are canonicalized before authorization, and local download destination parents are canonicalized before authorization. File transfer is disabled unless `max_transfer_bytes` is explicitly configured for the target.
+
 ## Authorization pipeline
 
 ```text
@@ -89,8 +115,6 @@ Remote paths are treated as POSIX paths independent of the MCP host operating sy
 Uploads first write to a uniquely named temporary file in the authorized destination directory and only rename it into place after the byte limit and sync checks succeed. Downloads similarly use a local temporary file so ordinary failures do not expose a partially written destination.
 
 Overwrite is intentionally explicit. Current cross-platform replacement semantics may remove the old destination immediately before rename; fully atomic replacement and cleanup of orphan temporary files after forced interruption are production-hardening work.
-
-The infrastructure `FileTransfer` API currently accepts local filesystem paths, but the future MCP adapter must not expose arbitrary model-controlled local paths. Upload/download tools should use a trusted staging directory or connector-provided file handles and apply a separate local-path boundary before calling this adapter.
 
 ## Remote account
 
