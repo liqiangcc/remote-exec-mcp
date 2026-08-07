@@ -485,7 +485,8 @@ mod tests {
         let outside = tempfile::tempdir().unwrap();
         let destination = outside.path().join("download.bin");
         let allowed = vec![root.path().to_string_lossy().into_owned()];
-        let error = authorize_local_destination(destination.to_str().unwrap(), &allowed).unwrap_err();
+        let error =
+            authorize_local_destination(destination.to_str().unwrap(), &allowed).unwrap_err();
         assert_eq!(error.code, ErrorCode::TransferPathDenied);
     }
 }
