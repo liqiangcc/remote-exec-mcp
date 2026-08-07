@@ -6,11 +6,15 @@ use tokio::fs;
 use crate::application::PlanningService;
 use crate::catalog::{Catalog, ConfigCatalog};
 use crate::config::{Config, TargetConfig};
-use crate::domain::{ExecutionOperation, ExecutionResult, TargetId, TaskDefinition, TaskRequest, TransferSpec};
+use crate::domain::{
+    ExecutionOperation, ExecutionResult, TargetId, TaskDefinition, TaskRequest, TransferSpec,
+};
 use crate::error::{AppError, AppResult, ErrorCode};
 use crate::execution::sftp::SftpFileTransfer;
 use crate::execution::ssh::SshCommandExecutor;
-use crate::execution::{CommandExecutor, ExecutionLimits, FileTransfer, TransferConstraints, TransferResult};
+use crate::execution::{
+    CommandExecutor, ExecutionLimits, FileTransfer, TransferConstraints, TransferResult,
+};
 use crate::secret::EnvSecretProvider;
 use crate::transport::ssh::SshTransport;
 use crate::transport::{ConnectionInfo, Transport};
@@ -77,11 +81,8 @@ impl RemoteExecService {
     ) -> AppResult<TransferResult> {
         let target_config = self.target(target)?;
         let policy = self.policy(target)?;
-        ensure_existing_local_path_allowed(
-            &transfer.source,
-            &policy.allowed_local_upload_roots,
-        )
-        .await?;
+        ensure_existing_local_path_allowed(&transfer.source, &policy.allowed_local_upload_roots)
+            .await?;
         let constraints = transfer_constraints(
             policy.transfer_timeout_seconds,
             policy.max_transfer_bytes,
@@ -244,9 +245,11 @@ mod tests {
         fs::write(&denied_file, b"no").await.unwrap();
         let roots = vec![allowed.path().display().to_string()];
 
-        assert!(ensure_existing_local_path_allowed(&allowed_file.display().to_string(), &roots)
-            .await
-            .is_ok());
+        assert!(
+            ensure_existing_local_path_allowed(&allowed_file.display().to_string(), &roots)
+                .await
+                .is_ok()
+        );
         let error = ensure_existing_local_path_allowed(&denied_file.display().to_string(), &roots)
             .await
             .unwrap_err();
