@@ -26,4 +26,17 @@ Tests cover:
 - audit event serialization and policy-decision semantics;
 - password-auth configuration parsing.
 
-A disposable in-process SSH integration test is tracked separately because it validates multiple infrastructure components together rather than replacing the deterministic unit-level threat tests above.
+## Disposable SSH integration test
+
+`tests/ssh_integration.rs` starts an in-process `russh` server on an ephemeral loopback port using a fixed test-only host key and an in-memory `SecretProvider`. It verifies the infrastructure chain without any external server or secret:
+
+```text
+SshTransport
+  -> accept-new host-key persistence
+  -> password authentication
+  -> SshSession
+  -> SshCommandExecutor
+  -> stdout/stderr/exit status
+```
+
+This integration test complements rather than replaces the deterministic unit-level threat tests above.
