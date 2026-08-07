@@ -1,10 +1,10 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result};
-use rmcp::{transport::stdio, ServiceExt};
 use remote_exec_mcp::config::Config;
 use remote_exec_mcp::mcp::RemoteExecMcp;
 use remote_exec_mcp::runtime::RemoteExecService;
+use rmcp::{transport::stdio, ServiceExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
