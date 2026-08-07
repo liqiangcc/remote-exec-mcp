@@ -46,7 +46,7 @@
 - [x] Local filesystem allowlist boundary for MCP file tools
 - [x] Threat-model regression tests for task validation, command quoting, host keys, local/remote paths, and transfer limits
 - [x] Fail-closed audit/config initialization
-- [ ] Disposable in-process SSH integration test
+- [x] Disposable in-process SSH integration test
 
 ## Post-v0.1 hardening options
 
