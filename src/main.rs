@@ -8,14 +8,14 @@ use rmcp::{transport::stdio, ServiceExt};
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // stdout is reserved for MCP stdio frames.
     tracing_subscriber::fmt()
         .with_writer(std::io::stderr)
         .init();
 
     let config_path = config_path()?;
     let config = Config::load(&config_path)?;
-    let service = RemoteExecMcp::new(RemoteExecService::new(config));
+    let app = RemoteExecService::try_new(config)?;
+    let service = RemoteExecMcp::new(app);
     let running = service.serve(stdio()).await?;
     running.waiting().await?;
     Ok(())

@@ -116,24 +116,51 @@ Uploads first write to a uniquely named temporary file in the authorized destina
 
 Overwrite is intentionally explicit. Current cross-platform replacement semantics may remove the old destination immediately before rename; fully atomic replacement and cleanup of orphan temporary files after forced interruption are production-hardening work.
 
+## Runtime admission control
+
+Remote operations share one application-level concurrency limiter. The default maximum is four active operations and operators may configure a different positive value with `runtime.max_concurrent_operations`.
+
+Admission is fail-fast rather than queued. When all permits are occupied, a new remote operation is rejected with the stable `concurrency_limit_exceeded` error. This prevents an AI client from creating an unbounded in-process backlog while remote systems are slow or unavailable.
+
+`list_targets` and `list_tasks` are local catalog reads and do not consume a remote-operation permit. `check_target`, `run_task`, `upload_file`, and `download_file` do.
+
 ## Remote account
 
 The SSH account should be restricted independently from MCP. If privileged operations are required, use narrow sudo rules for specific commands rather than broad passwordless sudo/root login.
 
 ## Audit
 
-Record at least:
+Audit persistence is disabled by default. Operators may explicitly enable an append-only JSON Lines sink:
+
+```yaml
+runtime:
+  audit:
+    type: jsonl
+    path: ./data/audit.jsonl
+```
+
+Audit records include:
 - request/execution ID;
 - timestamp;
 - target;
 - operation/task;
-- sanitized parameters;
-- policy decision;
-- outcome;
-- exit code where applicable;
+- sanitized parameter names only;
+- policy decision where available;
+- outcome and stable error code where applicable;
+- exit code for command execution where applicable;
+- transferred byte count for file transfers where applicable;
 - duration.
 
-Never record credentials or raw secret values.
+Parameter values are never persisted. File-transfer source/destination paths are also not persisted by the current audit model. Credentials and raw secret values must never appear in audit output.
+
+The audit lifecycle deliberately has asymmetric failure semantics:
+
+1. Before a remote operation starts, the `started` record must be persisted successfully. If that write fails, the remote operation is rejected and never begins.
+2. After the remote operation outcome is known, the final audit record is best-effort. If that write fails, the failure is sent to stderr, but the already-known remote-operation result is preserved.
+
+The second rule prevents a successful side-effecting operation from being reported as failed merely because its final audit write failed; otherwise an Agent could retry the operation and duplicate the side effect.
+
+Rejected requests are also written as best-effort audit events when auditing is enabled.
 
 ## Dangerous optional capabilities
 
