@@ -3,9 +3,7 @@ use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::application::task_execution_service::{
-    TaskExecutionRequest, TaskExecutionUseCase,
-};
+use crate::application::task_execution_service::{TaskExecutionRequest, TaskExecutionUseCase};
 use crate::error::{AppError, AppResult, ErrorCode};
 
 #[derive(Debug, Clone, PartialEq, Deserialize)]
@@ -83,9 +81,7 @@ mod tests {
     use std::future::Future;
 
     use super::*;
-    use crate::application::task_execution_service::{
-        TaskExecutionOutcome, TaskExecutionRequest,
-    };
+    use crate::application::task_execution_service::{TaskExecutionOutcome, TaskExecutionRequest};
     use crate::domain::ExecutionResult;
 
     struct StubUseCase;
