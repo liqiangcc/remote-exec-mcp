@@ -1,4 +1,4 @@
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::sync::Arc;
 
 use tokio::fs;
@@ -221,7 +221,7 @@ async fn ensure_canonical_local_path_allowed(candidate: &Path, roots: &[String])
     ))
 }
 
-fn reject_unrestricted_local_root(root: &PathBuf) -> AppResult<()> {
+fn reject_unrestricted_local_root(root: &Path) -> AppResult<()> {
     if root.parent().is_none() {
         return Err(AppError::new(
             ErrorCode::InvalidConfiguration,
