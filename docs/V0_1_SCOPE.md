@@ -16,6 +16,7 @@
 - durable JSONL audit persistence;
 - stable machine-readable errors;
 - unit/regression tests for command quoting, validation, policy, host-key behavior, path boundaries, transfer bounds, secret redaction, and audit serialization;
+- a disposable in-process SSH integration test covering secret resolution, host-key handling, password authentication, session establishment, command execution, stdout/stderr, and exit status;
 - runnable configuration and MCP client documentation.
 
 ## Explicitly outside the v0.1 core
