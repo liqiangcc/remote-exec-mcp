@@ -28,10 +28,13 @@ Tests cover:
 
 ## Disposable SSH integration test
 
-`tests/ssh_integration.rs` starts an in-process `russh` server on an ephemeral loopback port using a fixed test-only host key and an in-memory `SecretProvider`. It verifies the infrastructure chain without any external server or secret:
+`tests/ssh_integration.rs` starts an in-process `russh` server on an ephemeral loopback port with a generated test-only host key. The client resolves a test password through the same `EnvSecretProvider` used by the runtime, persists the generated host key through explicit `accept-new`, establishes a real SSH session, and executes a structured command through `SshCommandExecutor`.
+
+The integration chain is:
 
 ```text
-SshTransport
+EnvSecretProvider
+  -> SshTransport
   -> accept-new host-key persistence
   -> password authentication
   -> SshSession
@@ -39,4 +42,4 @@ SshTransport
   -> stdout/stderr/exit status
 ```
 
-This integration test complements rather than replaces the deterministic unit-level threat tests above.
+No external SSH server or production credential is required. This integration test complements rather than replaces the deterministic unit-level threat tests above.
