@@ -70,7 +70,9 @@ impl RemoteExecMcp {
         to_json(&targets)
     }
 
-    #[tool(description = "Check whether a configured target can be securely reached and authenticated over SSH.")]
+    #[tool(
+        description = "Check whether a configured target can be securely reached and authenticated over SSH."
+    )]
     async fn check_target(
         &self,
         Parameters(TargetParams { target }): Parameters<TargetParams>,
@@ -98,7 +100,9 @@ impl RemoteExecMcp {
         to_json(&tasks)
     }
 
-    #[tool(description = "Run an operator-defined named task with typed parameters. Arbitrary shell text is not accepted.")]
+    #[tool(
+        description = "Run an operator-defined named task with typed parameters. Arbitrary shell text is not accepted."
+    )]
     async fn run_task(
         &self,
         Parameters(RunTaskParams {
@@ -119,7 +123,9 @@ impl RemoteExecMcp {
         to_json(&result)
     }
 
-    #[tool(description = "Upload one local file over SFTP within configured local/remote roots and size limits.")]
+    #[tool(
+        description = "Upload one local file over SFTP within configured local/remote roots and size limits."
+    )]
     async fn upload_file(
         &self,
         Parameters(UploadFileParams {
@@ -144,7 +150,9 @@ impl RemoteExecMcp {
         to_json(&json!({ "bytes_transferred": result.bytes_transferred }))
     }
 
-    #[tool(description = "Download one remote file over SFTP within configured remote/local roots and size limits.")]
+    #[tool(
+        description = "Download one remote file over SFTP within configured remote/local roots and size limits."
+    )]
     async fn download_file(
         &self,
         Parameters(DownloadFileParams {
