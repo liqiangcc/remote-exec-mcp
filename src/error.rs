@@ -17,6 +17,7 @@ pub enum ErrorCode {
     InvalidParameter,
     InvalidTaskDefinition,
     InvalidConfiguration,
+    ConcurrencyLimitExceeded,
     SecretNotFound,
     InvalidPrivateKey,
     HostKeyRejected,
@@ -43,6 +44,7 @@ impl ErrorCode {
             Self::InvalidParameter => "invalid_parameter",
             Self::InvalidTaskDefinition => "invalid_task_definition",
             Self::InvalidConfiguration => "invalid_configuration",
+            Self::ConcurrencyLimitExceeded => "concurrency_limit_exceeded",
             Self::SecretNotFound => "secret_not_found",
             Self::InvalidPrivateKey => "invalid_private_key",
             Self::HostKeyRejected => "host_key_rejected",
@@ -103,6 +105,10 @@ mod tests {
             "\"unknown_target\""
         );
         assert_eq!(ErrorCode::TaskNotAllowed.as_str(), "task_not_allowed");
+        assert_eq!(
+            ErrorCode::ConcurrencyLimitExceeded.as_str(),
+            "concurrency_limit_exceeded"
+        );
         assert_eq!(ErrorCode::HostKeyRejected.as_str(), "host_key_rejected");
         assert_eq!(
             ErrorCode::AuthenticationFailed.as_str(),
