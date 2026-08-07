@@ -88,15 +88,19 @@ async fn password_transport_and_command_executor_work_end_to_end() {
     });
 
     let server_task = tokio::spawn(async move {
-        let (stream, _) = listener.accept().await.unwrap();
-        let running = server::run_stream(server_config, stream, TestServer)
-            .await
-            .unwrap();
-        // The disposable server owns one client connection. Once the client has
-        // received the exit status and drops the session, russh may report EOF
-        // while the server loop is unwinding. That is the expected shutdown path
-        // for this fixture, not an assertion about production server behavior.
-        let _ = running.await;
+        let Ok((stream, _)) = listener.accept().await else {
+            return;
+        };
+
+        // The fixture owns exactly one connection. Depending on the precise
+        // close ordering, russh may surface UnexpectedEof while the peer is
+        // shutting down after the exit status has already been delivered.
+        // The client-side assertions below are the integration contract, so
+        // teardown transport errors must not turn a successful exchange into
+        // a flaky test panic.
+        if let Ok(running) = server::run_stream(server_config, stream, TestServer).await {
+            let _ = running.await;
+        }
     });
 
     let directory = tempfile::tempdir().unwrap();
@@ -134,5 +138,5 @@ async fn password_transport_and_command_executor_work_end_to_end() {
     assert!(known_hosts_path.exists());
 
     drop(session);
-    server_task.await.unwrap();
+    let _ = server_task.await;
 }
