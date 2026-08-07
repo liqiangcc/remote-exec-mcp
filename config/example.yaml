@@ -1,0 +1,42 @@
+targets:
+  local-test:
+    transport:
+      type: ssh
+      host: 127.0.0.1
+      port: 22
+      user: deploy
+      auth:
+        type: key
+        secret_ref: ssh-key:local-test
+      host_key_policy: strict
+    policy:
+      allowed_tasks:
+        - whoami
+        - service-status
+      allowed_upload_roots:
+        - /tmp/remote-exec-mcp
+      allowed_download_roots:
+        - /var/log
+      max_transfer_bytes: 104857600
+
+tasks:
+  whoami:
+    description: Show the remote account identity
+    execution:
+      type: command
+      program: whoami
+      args: []
+    timeout_seconds: 5
+
+  service-status:
+    description: Show status for a systemd service
+    parameters:
+      service:
+        type: string
+        pattern: "^[a-zA-Z0-9_.@-]+$"
+        required: true
+    execution:
+      type: command
+      program: systemctl
+      args: ["status", "{{service}}", "--no-pager"]
+    timeout_seconds: 15
