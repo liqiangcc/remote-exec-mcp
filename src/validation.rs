@@ -1,25 +1,28 @@
-use anyhow::{bail, Context, Result};
 use regex::Regex;
 
 use crate::domain::{ParameterType, TaskDefinition, TaskRequest};
+use crate::error::{AppError, AppResult, ErrorCode};
 
 pub trait RequestValidator {
-    fn validate(&self, request: &TaskRequest, definition: &TaskDefinition) -> Result<()>;
+    fn validate(&self, request: &TaskRequest, definition: &TaskDefinition) -> AppResult<()>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DefaultRequestValidator;
 
 impl RequestValidator for DefaultRequestValidator {
-    fn validate(&self, request: &TaskRequest, definition: &TaskDefinition) -> Result<()> {
+    fn validate(&self, request: &TaskRequest, definition: &TaskDefinition) -> AppResult<()> {
         validate_task_request(request, definition)
     }
 }
 
-pub fn validate_task_request(request: &TaskRequest, definition: &TaskDefinition) -> Result<()> {
+pub fn validate_task_request(request: &TaskRequest, definition: &TaskDefinition) -> AppResult<()> {
     for name in request.parameters.keys() {
         if !definition.parameters.contains_key(name) {
-            bail!("unknown parameter: {name}");
+            return Err(AppError::new(
+                ErrorCode::InvalidParameter,
+                format!("unknown parameter: {name}"),
+            ));
         }
     }
 
@@ -27,7 +30,10 @@ pub fn validate_task_request(request: &TaskRequest, definition: &TaskDefinition)
         let value = request.parameters.get(name);
 
         if parameter.required && value.is_none() {
-            bail!("missing required parameter: {name}");
+            return Err(AppError::new(
+                ErrorCode::InvalidParameter,
+                format!("missing required parameter: {name}"),
+            ));
         }
 
         let Some(value) = value else {
@@ -41,22 +47,38 @@ pub fn validate_task_request(request: &TaskRequest, definition: &TaskDefinition)
         };
 
         if !type_matches {
-            bail!("parameter {name} has invalid type");
+            return Err(AppError::new(
+                ErrorCode::InvalidParameter,
+                format!("parameter {name} has invalid type"),
+            ));
         }
 
         if let Some(pattern) = &parameter.pattern {
             if parameter.kind != ParameterType::String {
-                bail!("parameter {name} uses a pattern but is not a string");
+                return Err(AppError::new(
+                    ErrorCode::InvalidTaskDefinition,
+                    format!("parameter {name} uses a pattern but is not a string"),
+                ));
             }
 
-            let candidate = value
-                .as_str()
-                .with_context(|| format!("parameter {name} must be a string"))?;
-            let regex = Regex::new(pattern)
-                .with_context(|| format!("invalid validation pattern for parameter {name}"))?;
+            let candidate = value.as_str().ok_or_else(|| {
+                AppError::new(
+                    ErrorCode::InvalidParameter,
+                    format!("parameter {name} must be a string"),
+                )
+            })?;
+            let regex = Regex::new(pattern).map_err(|_| {
+                AppError::new(
+                    ErrorCode::InvalidTaskDefinition,
+                    format!("invalid validation pattern for parameter {name}"),
+                )
+            })?;
 
             if !regex.is_match(candidate) {
-                bail!("parameter {name} does not match the allowed pattern");
+                return Err(AppError::new(
+                    ErrorCode::InvalidParameter,
+                    format!("parameter {name} does not match the allowed pattern"),
+                ));
             }
         }
     }
@@ -118,9 +140,9 @@ mod tests {
     }
 
     #[test]
-    fn rejects_missing_required_parameter() {
+    fn rejects_missing_required_parameter_with_stable_code() {
         let error = validate_task_request(&request(BTreeMap::new()), &definition()).unwrap_err();
-        assert!(error.to_string().contains("missing required parameter"));
+        assert_eq!(error.code, ErrorCode::InvalidParameter);
     }
 
     #[test]
@@ -130,14 +152,14 @@ mod tests {
             ("shell".to_owned(), json!("rm -rf /")),
         ]));
         let error = validate_task_request(&request, &definition()).unwrap_err();
-        assert!(error.to_string().contains("unknown parameter"));
+        assert_eq!(error.code, ErrorCode::InvalidParameter);
     }
 
     #[test]
     fn rejects_wrong_type() {
         let request = request(BTreeMap::from([("service".to_owned(), json!(123))]));
         let error = validate_task_request(&request, &definition()).unwrap_err();
-        assert!(error.to_string().contains("invalid type"));
+        assert_eq!(error.code, ErrorCode::InvalidParameter);
     }
 
     #[test]
@@ -147,6 +169,6 @@ mod tests {
             json!("demo; shutdown -h now"),
         )]));
         let error = validate_task_request(&request, &definition()).unwrap_err();
-        assert!(error.to_string().contains("allowed pattern"));
+        assert_eq!(error.code, ErrorCode::InvalidParameter);
     }
 }

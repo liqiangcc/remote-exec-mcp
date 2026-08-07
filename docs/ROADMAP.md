@@ -9,8 +9,8 @@
 - [x] Add configuration example
 
 ## Phase 1 — Core domain and application
-- [ ] Stable error model
-- [ ] Target/task catalog
+- [x] Stable error model
+- [x] Target/task catalog
 - [x] typed parameter validation
 - [x] task planner -> execution plan
 - [x] policy engine interface

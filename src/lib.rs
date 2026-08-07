@@ -1,7 +1,9 @@
 pub mod application;
 pub mod audit;
+pub mod catalog;
 pub mod config;
 pub mod domain;
+pub mod error;
 pub mod execution;
 pub mod policy;
 pub mod secret;
