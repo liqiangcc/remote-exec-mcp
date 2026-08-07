@@ -53,9 +53,7 @@ impl SshCommandExecutor {
             while let Some(message) = channel.wait().await {
                 match message {
                     ChannelMsg::Data { data } => stdout.push(data.as_ref()),
-                    ChannelMsg::ExtendedData { ext, data } if ext == 1 => {
-                        stderr.push(data.as_ref())
-                    }
+                    ChannelMsg::ExtendedData { ext: 1, data } => stderr.push(data.as_ref()),
                     ChannelMsg::ExitStatus { exit_status } => {
                         exit_code = i32::try_from(exit_status).ok();
                     }
