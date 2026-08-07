@@ -13,6 +13,9 @@ pub struct AuditEvent {
     pub target: String,
     pub operation: String,
     pub task: Option<String>,
+    /// Sanitized parameter metadata. Values are intentionally never persisted.
+    #[serde(default)]
+    pub parameter_names: Vec<String>,
     pub policy_decision: Option<String>,
     pub outcome: String,
     pub error_code: Option<String>,
@@ -98,6 +101,7 @@ mod tests {
             target: "test".to_owned(),
             operation: "run_task".to_owned(),
             task: Some("status".to_owned()),
+            parameter_names: vec!["service".to_owned()],
             policy_decision: Some("allowed".to_owned()),
             outcome: outcome.to_owned(),
             error_code: None,
@@ -108,7 +112,7 @@ mod tests {
     }
 
     #[test]
-    fn appends_one_json_object_per_line() {
+    fn appends_one_json_object_per_line_without_parameter_values() {
         let directory = tempfile::tempdir().unwrap();
         let path = directory.path().join("audit/events.jsonl");
         let sink = JsonlAuditSink::open(&path).unwrap();
@@ -122,6 +126,8 @@ mod tests {
         let first: AuditEvent = serde_json::from_str(lines[0]).unwrap();
         let second: AuditEvent = serde_json::from_str(lines[1]).unwrap();
         assert_eq!(first.outcome, "started");
+        assert_eq!(first.parameter_names, vec!["service"]);
         assert_eq!(second.outcome, "succeeded");
+        assert!(!content.contains("demo.service"));
     }
 }
