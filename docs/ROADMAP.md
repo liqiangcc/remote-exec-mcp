@@ -40,9 +40,9 @@
 - [x] local MCP-host upload/download roots
 
 ## Phase 4 — Production hardening
-- [ ] concurrency limits
+- [x] concurrency limits
 - [ ] cancellation
-- [ ] structured audit persistence
+- [x] structured audit persistence
 - [ ] password/SSH-agent providers
 - [ ] integration tests with disposable SSH server
 - [ ] threat-model tests
