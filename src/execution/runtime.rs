@@ -55,12 +55,12 @@ where
                     )
                     .await
             }
-            ExecutionOperation::Upload { .. } | ExecutionOperation::Download { .. } => Err(
-                AppError::new(
+            ExecutionOperation::Upload { .. } | ExecutionOperation::Download { .. } => {
+                Err(AppError::new(
                     ErrorCode::InvalidTaskDefinition,
                     "run_task execution runner received a non-command execution plan",
-                ),
-            ),
+                ))
+            }
         }
     }
 }
