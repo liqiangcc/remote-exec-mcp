@@ -5,6 +5,7 @@ pub mod config;
 pub mod domain;
 pub mod error;
 pub mod execution;
+pub mod mcp;
 pub mod policy;
 pub mod secret;
 pub mod transport;
