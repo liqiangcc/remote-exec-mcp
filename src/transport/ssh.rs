@@ -65,19 +65,6 @@ where
             ));
         }
 
-        let AuthConfig::Key { secret_ref } = auth;
-        let secret_ref = SecretRef(secret_ref.clone());
-        let private_key = self.secrets.resolve(&secret_ref)?;
-        let private_key = keys::decode_secret_key(private_key.expose(), None).map_err(|_| {
-            AppError::new(
-                ErrorCode::InvalidPrivateKey,
-                format!(
-                    "failed to decode SSH private key from reference {}",
-                    secret_ref.0
-                ),
-            )
-        })?;
-
         let verifier = HostKeyVerifier::new(
             host.clone(),
             *port,
@@ -102,29 +89,47 @@ where
             })?
             .map_err(map_client_error)?;
 
-        let authentication = timeout(duration, async {
-            let hash_algorithm = handle.best_supported_rsa_hash().await?.flatten();
-            let key = PrivateKeyWithHashAlg::new(Arc::new(private_key), hash_algorithm);
-            handle.authenticate_publickey(user.clone(), key).await
-        })
-        .await
-        .map_err(|_| {
-            AppError::new(
-                ErrorCode::ConnectionTimeout,
-                format!("SSH authentication timed out for {user}@{host}:{port}"),
-            )
-        })?
-        .map_err(|error| {
-            AppError::new(
-                ErrorCode::AuthenticationFailed,
-                format!("SSH public-key authentication failed: {error}"),
-            )
-        })?;
+        let authentication = match auth {
+            AuthConfig::Key { secret_ref } => {
+                let secret_ref = SecretRef(secret_ref.clone());
+                let private_key = self.secrets.resolve(&secret_ref)?;
+                let private_key =
+                    keys::decode_secret_key(private_key.expose(), None).map_err(|_| {
+                        AppError::new(
+                            ErrorCode::InvalidPrivateKey,
+                            format!(
+                                "failed to decode SSH private key from reference {}",
+                                secret_ref.0
+                            ),
+                        )
+                    })?;
+
+                timeout(duration, async {
+                    let hash_algorithm = handle.best_supported_rsa_hash().await?.flatten();
+                    let key = PrivateKeyWithHashAlg::new(Arc::new(private_key), hash_algorithm);
+                    handle.authenticate_publickey(user.clone(), key).await
+                })
+                .await
+                .map_err(|_| authentication_timeout(user, host, *port))?
+                .map_err(|error| authentication_error("public-key", error))?
+            }
+            AuthConfig::Password { secret_ref } => {
+                let secret_ref = SecretRef(secret_ref.clone());
+                let password = self.secrets.resolve(&secret_ref)?;
+                timeout(
+                    duration,
+                    handle.authenticate_password(user.clone(), password.expose().to_owned()),
+                )
+                .await
+                .map_err(|_| authentication_timeout(user, host, *port))?
+                .map_err(|error| authentication_error("password", error))?
+            }
+        };
 
         if !authentication.success() {
             return Err(AppError::new(
                 ErrorCode::AuthenticationFailed,
-                format!("SSH public-key authentication was rejected for {user}@{host}:{port}"),
+                format!("SSH authentication was rejected for {user}@{host}:{port}"),
             ));
         }
 
@@ -144,6 +149,20 @@ where
             remote_identity: Some(remote_identity),
         })
     }
+}
+
+fn authentication_timeout(user: &str, host: &str, port: u16) -> AppError {
+    AppError::new(
+        ErrorCode::ConnectionTimeout,
+        format!("SSH authentication timed out for {user}@{host}:{port}"),
+    )
+}
+
+fn authentication_error(method: &str, error: russh::Error) -> AppError {
+    AppError::new(
+        ErrorCode::AuthenticationFailed,
+        format!("SSH {method} authentication failed: {error}"),
+    )
 }
 
 impl<P> Transport for SshTransport<P>
