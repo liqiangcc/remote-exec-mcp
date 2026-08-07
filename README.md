@@ -55,6 +55,8 @@ Three invariants are intentionally enforced:
 - transfer size and timeout limits;
 - secret references instead of embedded credentials;
 - stable application error codes exposed through the MCP boundary;
+- global fail-fast concurrency admission control;
+- optional append-only JSONL audit persistence;
 - stdio MCP server.
 
 No unrestricted shell tool is exposed by default.
@@ -62,6 +64,12 @@ No unrestricted shell tool is exposed by default.
 ## Example configuration
 
 ```yaml
+runtime:
+  max_concurrent_operations: 4
+  audit:
+    type: jsonl
+    path: ./data/audit.jsonl
+
 targets:
   test:
     transport:
@@ -101,6 +109,14 @@ The task is the public intent. `execution` is operator-owned implementation meta
 
 File transfer is deny-by-default: remote roots, local roots, and `max_transfer_bytes` must be explicitly configured before the MCP tools can transfer files.
 
+## Runtime hardening
+
+`runtime.max_concurrent_operations` limits active remote operations across protocol clients. It defaults to `4`. Admission is fail-fast: when the limit is reached, the server returns `concurrency_limit_exceeded` instead of building an unbounded queue.
+
+Audit is disabled unless explicitly configured. The JSONL sink records request ID, timestamp, target, operation/task, parameter names, policy decision, outcome, error/exit information, transfer byte counts, and duration where applicable. Parameter values, credentials, secrets, and file-transfer paths are not persisted.
+
+For operations that can reach a remote target, the initial `started` audit record is fail-closed: if it cannot be persisted, the remote operation does not begin. Once an operation result is already known, a failure to write the final audit record is logged to stderr without rewriting the operation result, preventing unsafe automatic retries of successful side effects.
+
 ## MCP tools
 
 - `list_targets` — list configured targets without opening a connection.
@@ -110,7 +126,7 @@ File transfer is deny-by-default: remote roots, local roots, and `max_transfer_b
 - `upload_file` — upload one local file through SFTP within local/remote roots.
 - `download_file` — download one remote file through SFTP within remote/local roots.
 
-The MCP layer never owns SSH logic, authorization rules, secret storage, or command construction.
+The MCP layer never owns SSH logic, authorization rules, secret storage, command construction, concurrency policy, or audit persistence.
 
 ## Running over stdio
 
