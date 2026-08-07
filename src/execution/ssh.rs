@@ -199,11 +199,7 @@ mod tests {
     fn renders_program_and_argv_without_raw_shell_concatenation() {
         let command = CommandSpec {
             program: "printf".to_owned(),
-            args: vec![
-                "%s".to_owned(),
-                "a;$(id)".to_owned(),
-                "x'y".to_owned(),
-            ],
+            args: vec!["%s".to_owned(), "a;$(id)".to_owned(), "x'y".to_owned()],
         };
 
         assert_eq!(
