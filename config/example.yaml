@@ -16,11 +16,20 @@ targets:
       allowed_tasks:
         - whoami
         - service-status
+      # Remote destination roots for upload_file.
       allowed_upload_roots:
         - /tmp/remote-exec-mcp
+      # Remote source roots for download_file.
       allowed_download_roots:
-        - /var/log
+        - /var/log/my-app
+      # Local MCP-host source roots for upload_file.
+      allowed_local_upload_roots:
+        - /home/user/artifacts
+      # Local MCP-host destination roots for download_file.
+      allowed_local_download_roots:
+        - /home/user/downloads
       max_transfer_bytes: 104857600
+      transfer_timeout_seconds: 60
 
 tasks:
   whoami:

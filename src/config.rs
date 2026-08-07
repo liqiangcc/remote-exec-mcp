@@ -63,7 +63,7 @@ pub enum HostKeyPolicy {
     AcceptNew,
 }
 
-#[derive(Debug, Clone, Default, Deserialize)]
+#[derive(Debug, Clone, Deserialize)]
 pub struct TargetPolicyConfig {
     #[serde(default)]
     pub allowed_tasks: Vec<String>,
@@ -71,7 +71,31 @@ pub struct TargetPolicyConfig {
     pub allowed_upload_roots: Vec<String>,
     #[serde(default)]
     pub allowed_download_roots: Vec<String>,
+    #[serde(default)]
+    pub allowed_local_upload_roots: Vec<String>,
+    #[serde(default)]
+    pub allowed_local_download_roots: Vec<String>,
     pub max_transfer_bytes: Option<u64>,
+    #[serde(default = "default_transfer_timeout")]
+    pub transfer_timeout_seconds: u64,
+}
+
+impl Default for TargetPolicyConfig {
+    fn default() -> Self {
+        Self {
+            allowed_tasks: Vec::new(),
+            allowed_upload_roots: Vec::new(),
+            allowed_download_roots: Vec::new(),
+            allowed_local_upload_roots: Vec::new(),
+            allowed_local_download_roots: Vec::new(),
+            max_transfer_bytes: None,
+            transfer_timeout_seconds: default_transfer_timeout(),
+        }
+    }
+}
+
+fn default_transfer_timeout() -> u64 {
+    60
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -142,7 +166,10 @@ impl Config {
             allowed_tasks: target.policy.allowed_tasks.iter().cloned().collect(),
             allowed_upload_roots: target.policy.allowed_upload_roots.clone(),
             allowed_download_roots: target.policy.allowed_download_roots.clone(),
+            allowed_local_upload_roots: target.policy.allowed_local_upload_roots.clone(),
+            allowed_local_download_roots: target.policy.allowed_local_download_roots.clone(),
             max_transfer_bytes: target.policy.max_transfer_bytes,
+            transfer_timeout_seconds: target.policy.transfer_timeout_seconds,
         })
     }
 }
@@ -166,6 +193,7 @@ targets:
         secret_ref: env:TEST_SSH_KEY
     policy:
       allowed_tasks: [whoami]
+      allowed_local_upload_roots: [/tmp/artifacts]
 tasks:
   whoami:
     execution:
@@ -180,6 +208,8 @@ tasks:
 
         let policy = config.target_policy(&TargetId("test".to_owned())).unwrap();
         assert!(policy.allowed_tasks.contains("whoami"));
+        assert_eq!(policy.transfer_timeout_seconds, 60);
+        assert_eq!(policy.allowed_local_upload_roots, vec!["/tmp/artifacts"]);
 
         let TargetTransportConfig::Ssh {
             port,

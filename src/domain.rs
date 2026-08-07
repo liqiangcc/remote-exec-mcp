@@ -60,12 +60,33 @@ pub enum ExecutionTemplate {
 
 /// Target policy is a domain value object. Security logic does not depend on
 /// the YAML/config representation used by infrastructure code.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TargetPolicy {
     pub allowed_tasks: BTreeSet<String>,
+    /// Remote destinations allowed for uploads.
     pub allowed_upload_roots: Vec<String>,
+    /// Remote sources allowed for downloads.
     pub allowed_download_roots: Vec<String>,
+    /// Local MCP-host sources allowed for uploads.
+    pub allowed_local_upload_roots: Vec<String>,
+    /// Local MCP-host destinations allowed for downloads.
+    pub allowed_local_download_roots: Vec<String>,
     pub max_transfer_bytes: Option<u64>,
+    pub transfer_timeout_seconds: u64,
+}
+
+impl Default for TargetPolicy {
+    fn default() -> Self {
+        Self {
+            allowed_tasks: BTreeSet::new(),
+            allowed_upload_roots: Vec::new(),
+            allowed_download_roots: Vec::new(),
+            allowed_local_upload_roots: Vec::new(),
+            allowed_local_download_roots: Vec::new(),
+            max_transfer_bytes: None,
+            transfer_timeout_seconds: 60,
+        }
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
