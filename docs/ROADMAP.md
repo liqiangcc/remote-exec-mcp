@@ -23,8 +23,8 @@
 - [x] key authentication through secret references
 - [x] known_hosts verification
 - [x] connection timeout
-- [ ] SSH command executor
-- [ ] bounded stdout/stderr
+- [x] SSH command executor
+- [x] bounded stdout/stderr
 - [ ] SFTP/SCP file transfer
 - [ ] transfer size/path limits
 

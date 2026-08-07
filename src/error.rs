@@ -23,6 +23,8 @@ pub enum ErrorCode {
     ConnectionFailed,
     ConnectionTimeout,
     AuthenticationFailed,
+    ExecutionFailed,
+    ExecutionTimeout,
     Internal,
 }
 
@@ -42,6 +44,8 @@ impl ErrorCode {
             Self::ConnectionFailed => "connection_failed",
             Self::ConnectionTimeout => "connection_timeout",
             Self::AuthenticationFailed => "authentication_failed",
+            Self::ExecutionFailed => "execution_failed",
+            Self::ExecutionTimeout => "execution_timeout",
             Self::Internal => "internal",
         }
     }
@@ -94,6 +98,8 @@ mod tests {
             ErrorCode::AuthenticationFailed.as_str(),
             "authentication_failed"
         );
+        assert_eq!(ErrorCode::ExecutionFailed.as_str(), "execution_failed");
+        assert_eq!(ErrorCode::ExecutionTimeout.as_str(), "execution_timeout");
     }
 
     #[test]

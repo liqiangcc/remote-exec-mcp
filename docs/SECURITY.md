@@ -56,14 +56,20 @@ Connection and public-key authentication are bounded by the configured SSH conne
 
 The model selects a named task and typed parameters. Operator-owned planning metadata resolves that request into a program + argv execution plan.
 
-Avoid shell concatenation. Prefer:
+Prefer:
 
 ```text
 program = systemctl
 argv = [restart, validated_service]
 ```
 
-A future shell-backed task must be an explicit higher-risk capability with stronger policy controls.
+SSH `exec` transports a command string and the server passes it to a shell. The SSH command executor is therefore the only layer allowed to serialize the structured `program + argv` plan: every token is POSIX single-quoted, embedded single quotes are escaped, and NUL bytes are rejected. The executor never accepts model-provided raw shell text.
+
+This quoting step is a transport serialization detail, not authorization. Policy and validation must already have completed before the command reaches the executor.
+
+Standard output and standard error are captured independently with bounded byte limits. Truncation is reported in `ExecutionResult` instead of allowing unbounded memory growth. Command execution is also time-bounded; timeout handling performs a best-effort SSH channel close. Strong remote-process cancellation remains a separate production-hardening capability.
+
+A future explicitly shell-backed task must be a separate higher-risk capability with stronger policy controls.
 
 ## Filesystem safety
 

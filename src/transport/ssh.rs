@@ -35,6 +35,12 @@ impl SshSession {
     pub fn remote_identity(&self) -> &str {
         &self.remote_identity
     }
+
+    pub(crate) async fn open_session_channel(
+        &self,
+    ) -> Result<russh::Channel<client::Msg>, russh::Error> {
+        self.handle.channel_open_session().await
+    }
 }
 
 impl<P> SshTransport<P>
