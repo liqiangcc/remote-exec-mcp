@@ -93,6 +93,7 @@ fn default_connect_timeout() -> u64 {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AuthConfig {
     Key { secret_ref: String },
+    Password { secret_ref: String },
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -228,5 +229,28 @@ tasks:
         assert!(config
             .target_transport(&TargetId("test".to_owned()))
             .is_some());
+    }
+
+    #[test]
+    fn parses_password_auth_as_secret_reference() {
+        let config: Config = serde_yaml::from_str(
+            r#"
+targets:
+  test:
+    transport:
+      type: ssh
+      host: 127.0.0.1
+      user: deploy
+      auth:
+        type: password
+        secret_ref: env:TEST_SSH_PASSWORD
+"#,
+        )
+        .unwrap();
+
+        let TargetTransportConfig::Ssh { auth, .. } = config
+            .target_transport(&TargetId("test".to_owned()))
+            .unwrap();
+        assert!(matches!(auth, AuthConfig::Password { secret_ref } if secret_ref == "env:TEST_SSH_PASSWORD"));
     }
 }
