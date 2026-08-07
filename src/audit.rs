@@ -35,13 +35,18 @@ impl AuditEvent {
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis();
+        let policy_decision = match outcome {
+            "started" => None,
+            "denied" => Some("deny".to_owned()),
+            _ => Some("allow".to_owned()),
+        };
         Self {
             request_id: request_id.to_owned(),
             timestamp: millis.to_string(),
             target: target.to_owned(),
             operation: operation.to_owned(),
             task: task.map(str::to_owned),
-            policy_decision: Some(if outcome == "denied" { "deny" } else { "allow" }.to_owned()),
+            policy_decision,
             outcome: outcome.to_owned(),
             exit_code,
             duration_ms,
@@ -122,6 +127,18 @@ mod tests {
     use super::*;
 
     #[test]
+    fn started_event_has_no_policy_decision() {
+        let event = AuditEvent::new("req", "test", "run_task", None, "started", None, None);
+        assert_eq!(event.policy_decision, None);
+    }
+
+    #[test]
+    fn denied_event_records_deny_decision() {
+        let event = AuditEvent::new("req", "test", "run_task", None, "denied", None, None);
+        assert_eq!(event.policy_decision.as_deref(), Some("deny"));
+    }
+
+    #[test]
     fn jsonl_sink_persists_machine_readable_event() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("audit.jsonl");
@@ -141,5 +158,6 @@ mod tests {
         assert_eq!(value["request_id"], "req-1");
         assert_eq!(value["target"], "test");
         assert_eq!(value["outcome"], "success");
+        assert_eq!(value["policy_decision"], "allow");
     }
 }
