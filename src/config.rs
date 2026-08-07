@@ -12,9 +12,40 @@ use crate::domain::{
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     #[serde(default)]
+    pub runtime: RuntimeConfig,
+    #[serde(default)]
     pub targets: BTreeMap<String, TargetConfig>,
     #[serde(default)]
     pub tasks: BTreeMap<String, TaskConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuntimeConfig {
+    #[serde(default = "default_max_concurrent_operations")]
+    pub max_concurrent_operations: usize,
+    #[serde(default)]
+    pub audit: AuditConfig,
+}
+
+impl Default for RuntimeConfig {
+    fn default() -> Self {
+        Self {
+            max_concurrent_operations: default_max_concurrent_operations(),
+            audit: AuditConfig::default(),
+        }
+    }
+}
+
+fn default_max_concurrent_operations() -> usize {
+    4
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AuditConfig {
+    #[default]
+    Disabled,
+    Jsonl { path: String },
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -210,6 +241,8 @@ tasks:
         assert!(policy.allowed_tasks.contains("whoami"));
         assert_eq!(policy.transfer_timeout_seconds, 60);
         assert_eq!(policy.allowed_local_upload_roots, vec!["/tmp/artifacts"]);
+        assert_eq!(config.runtime.max_concurrent_operations, 4);
+        assert!(matches!(config.runtime.audit, AuditConfig::Disabled));
 
         let TargetTransportConfig::Ssh {
             port,
@@ -222,5 +255,25 @@ tasks:
         assert!(matches!(host_key_policy, HostKeyPolicy::Strict));
         assert!(known_hosts_path.is_none());
         assert_eq!(*connect_timeout_seconds, 10);
+    }
+
+    #[test]
+    fn parses_runtime_guards() {
+        let config: Config = serde_yaml::from_str(
+            r#"
+runtime:
+  max_concurrent_operations: 2
+  audit:
+    type: jsonl
+    path: ./data/audit.jsonl
+"#,
+        )
+        .unwrap();
+
+        assert_eq!(config.runtime.max_concurrent_operations, 2);
+        match config.runtime.audit {
+            AuditConfig::Jsonl { path } => assert_eq!(path, "./data/audit.jsonl"),
+            AuditConfig::Disabled => panic!("expected jsonl audit config"),
+        }
     }
 }
