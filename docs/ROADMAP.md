@@ -19,10 +19,10 @@
 - [x] application use-case orchestration
 
 ## Phase 2 — SSH infrastructure
-- [ ] SSH transport/session
-- [ ] key authentication through secret references
-- [ ] known_hosts verification
-- [ ] connection timeout
+- [x] SSH transport/session
+- [x] key authentication through secret references
+- [x] known_hosts verification
+- [x] connection timeout
 - [ ] SSH command executor
 - [ ] bounded stdout/stderr
 - [ ] SFTP/SCP file transfer

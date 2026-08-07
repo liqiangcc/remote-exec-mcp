@@ -7,8 +7,11 @@ targets:
       user: deploy
       auth:
         type: key
-        secret_ref: ssh-key:local-test
+        secret_ref: env:REMOTE_EXEC_SSH_KEY
       host_key_policy: strict
+      # Optional. Defaults to the current user's ~/.ssh/known_hosts.
+      known_hosts_path: /home/user/.ssh/known_hosts
+      connect_timeout_seconds: 10
     policy:
       allowed_tasks:
         - whoami

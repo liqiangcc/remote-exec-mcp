@@ -17,6 +17,12 @@ pub enum ErrorCode {
     InvalidParameter,
     InvalidTaskDefinition,
     InvalidConfiguration,
+    SecretNotFound,
+    InvalidPrivateKey,
+    HostKeyRejected,
+    ConnectionFailed,
+    ConnectionTimeout,
+    AuthenticationFailed,
     Internal,
 }
 
@@ -30,6 +36,12 @@ impl ErrorCode {
             Self::InvalidParameter => "invalid_parameter",
             Self::InvalidTaskDefinition => "invalid_task_definition",
             Self::InvalidConfiguration => "invalid_configuration",
+            Self::SecretNotFound => "secret_not_found",
+            Self::InvalidPrivateKey => "invalid_private_key",
+            Self::HostKeyRejected => "host_key_rejected",
+            Self::ConnectionFailed => "connection_failed",
+            Self::ConnectionTimeout => "connection_timeout",
+            Self::AuthenticationFailed => "authentication_failed",
             Self::Internal => "internal",
         }
     }
@@ -77,6 +89,11 @@ mod tests {
             "\"unknown_target\""
         );
         assert_eq!(ErrorCode::TaskNotAllowed.as_str(), "task_not_allowed");
+        assert_eq!(ErrorCode::HostKeyRejected.as_str(), "host_key_rejected");
+        assert_eq!(
+            ErrorCode::AuthenticationFailed.as_str(),
+            "authentication_failed"
+        );
     }
 
     #[test]

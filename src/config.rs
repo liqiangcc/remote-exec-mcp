@@ -35,11 +35,18 @@ pub enum TargetTransportConfig {
         auth: AuthConfig,
         #[serde(default)]
         host_key_policy: HostKeyPolicy,
+        known_hosts_path: Option<String>,
+        #[serde(default = "default_connect_timeout")]
+        connect_timeout_seconds: u64,
     },
 }
 
 fn default_port() -> u16 {
     22
+}
+
+fn default_connect_timeout() -> u64 {
+    10
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -156,7 +163,7 @@ targets:
       user: deploy
       auth:
         type: key
-        secret_ref: ssh-key:test
+        secret_ref: env:TEST_SSH_KEY
     policy:
       allowed_tasks: [whoami]
 tasks:
@@ -173,5 +180,17 @@ tasks:
 
         let policy = config.target_policy(&TargetId("test".to_owned())).unwrap();
         assert!(policy.allowed_tasks.contains("whoami"));
+
+        let TargetTransportConfig::Ssh {
+            port,
+            host_key_policy,
+            known_hosts_path,
+            connect_timeout_seconds,
+            ..
+        } = &config.targets.get("test").unwrap().transport;
+        assert_eq!(*port, 22);
+        assert!(matches!(host_key_policy, HostKeyPolicy::Strict));
+        assert!(known_hosts_path.is_none());
+        assert_eq!(*connect_timeout_seconds, 10);
     }
 }
