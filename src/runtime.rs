@@ -10,13 +10,17 @@ use crate::application::PlanningService;
 use crate::audit::{AuditEvent, AuditSink, JsonlAuditSink};
 use crate::catalog::{Catalog, ConfigCatalog};
 use crate::config::{Config, TargetTransportConfig};
-use crate::domain::{ExecutionOperation, ExecutionResult, TargetId, TaskDefinition, TaskRequest, TransferSpec};
+use crate::domain::{
+    ExecutionOperation, ExecutionResult, TargetId, TaskDefinition, TaskRequest, TransferSpec,
+};
 use crate::error::{AppError, AppResult, ErrorCode};
 use crate::execution::sftp::SftpFileTransfer;
 use crate::execution::ssh::SshCommandExecutor;
-use crate::execution::{CommandExecutor, ExecutionLimits, FileTransfer, TransferConstraints, TransferResult};
+use crate::execution::{
+    CommandExecutor, ExecutionLimits, FileTransfer, TransferConstraints, TransferResult,
+};
 use crate::secret::EnvSecretProvider;
-use crate::transport::ssh::{SshSession, SshTransport};
+use crate::transport::ssh::SshTransport;
 use crate::transport::{ConnectionInfo, Transport};
 
 pub struct RemoteExecRuntime {
@@ -128,7 +132,11 @@ impl RemoteExecRuntime {
         let result = match plan.operation {
             ExecutionOperation::Command { command } => {
                 self.command_executor
-                    .execute(&mut session, &command, ExecutionLimits::new(plan.timeout_seconds))
+                    .execute(
+                        &mut session,
+                        &command,
+                        ExecutionLimits::new(plan.timeout_seconds),
+                    )
                     .await
             }
             _ => Err(AppError::new(
@@ -201,7 +209,10 @@ impl RemoteExecRuntime {
 
         let transport = self.target_transport(&target)?;
         let mut session = self.transport.connect(transport).await?;
-        let result = self.file_transfer.upload(&mut session, &transfer, constraints).await;
+        let result = self
+            .file_transfer
+            .upload(&mut session, &transfer, constraints)
+            .await;
         self.finish_transfer_audit(&request_id, &target, "upload_file", &result)?;
         result
     }
@@ -241,17 +252,18 @@ impl RemoteExecRuntime {
 
         let transport = self.target_transport(&target)?;
         let mut session = self.transport.connect(transport).await?;
-        let result = self.file_transfer.download(&mut session, &transfer, constraints).await;
+        let result = self
+            .file_transfer
+            .download(&mut session, &transfer, constraints)
+            .await;
         self.finish_transfer_audit(&request_id, &target, "download_file", &result)?;
         result
     }
 
     async fn acquire(&self) -> AppResult<OwnedSemaphorePermit> {
-        self.concurrency
-            .clone()
-            .acquire_owned()
-            .await
-            .map_err(|_| AppError::new(ErrorCode::Internal, "runtime concurrency limiter is closed"))
+        self.concurrency.clone().acquire_owned().await.map_err(|_| {
+            AppError::new(ErrorCode::Internal, "runtime concurrency limiter is closed")
+        })
     }
 
     fn target_transport(&self, target: &TargetId) -> AppResult<&TargetTransportConfig> {
@@ -263,7 +275,10 @@ impl RemoteExecRuntime {
         })
     }
 
-    fn target_policy_for_transfer(&self, target: &TargetId) -> AppResult<crate::domain::TargetPolicy> {
+    fn target_policy_for_transfer(
+        &self,
+        target: &TargetId,
+    ) -> AppResult<crate::domain::TargetPolicy> {
         self.config.target_policy(target).ok_or_else(|| {
             AppError::new(
                 ErrorCode::UnknownTarget,
@@ -298,13 +313,7 @@ impl RemoteExecRuntime {
         task: Option<&str>,
     ) -> AppResult<()> {
         self.audit.record(&AuditEvent::new(
-            request_id,
-            &target.0,
-            operation,
-            task,
-            "started",
-            None,
-            None,
+            request_id, &target.0, operation, task, "started", None, None,
         ))
     }
 
@@ -386,7 +395,10 @@ fn ensure_local_path_in_roots(candidate: &Path, roots: &[String]) -> AppResult<(
     }
     Err(AppError::new(
         ErrorCode::TransferPathDenied,
-        format!("local path is outside configured roots: {}", candidate.display()),
+        format!(
+            "local path is outside configured roots: {}",
+            candidate.display()
+        ),
     ))
 }
 
@@ -411,8 +423,8 @@ mod tests {
         let root = tempfile::tempdir().unwrap();
         let outside = tempfile::NamedTempFile::new().unwrap();
         let allowed = vec![root.path().to_string_lossy().into_owned()];
-        let error = authorize_existing_local_path(outside.path().to_str().unwrap(), &allowed)
-            .unwrap_err();
+        let error =
+            authorize_existing_local_path(outside.path().to_str().unwrap(), &allowed).unwrap_err();
         assert_eq!(error.code, ErrorCode::TransferPathDenied);
     }
 }
