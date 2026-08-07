@@ -1,5 +1,7 @@
 use serde::{Deserialize, Serialize};
 
+use crate::application::task_execution_service::{TaskExecutionRequest, TaskExecutionService};
+
 /// MCP input for executing an approved task.
 ///
 /// The adapter only carries intent. Policy evaluation and execution
@@ -18,12 +20,30 @@ pub struct RunTaskResponse {
     pub status: String,
 }
 
-/// Placeholder adapter boundary for the run_task MCP tool.
+/// MCP adapter boundary.
 ///
-/// The implementation will delegate to PlanningService in the next step.
-pub fn run_task(request: RunTaskRequest) -> RunTaskResponse {
+/// The adapter translates MCP input into an application request.
+pub async fn run_task(request: RunTaskRequest) -> RunTaskResponse {
+    let service = TaskExecutionService::new();
+
+    let parameters = match request.parameters {
+        serde_json::Value::Object(values) => values
+            .into_iter()
+            .filter_map(|(key, value)| Some((key, value.as_str()?.to_string())))
+            .collect(),
+        _ => std::collections::HashMap::new(),
+    };
+
+    let _ = service
+        .execute(TaskExecutionRequest {
+            target: request.target.clone(),
+            task: request.task.clone(),
+            parameters,
+        })
+        .await;
+
     RunTaskResponse {
         execution_id: format!("pending-{}", request.task),
-        status: "planned".to_string(),
+        status: "delegated".to_string(),
     }
 }
