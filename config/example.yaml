@@ -1,3 +1,16 @@
+runtime:
+  # Global cap across network-backed MCP operations.
+  max_concurrency: 4
+  transfer_timeout_seconds: 60
+  audit_path: .remote-exec-mcp/audit.jsonl
+
+  # File tools are disabled unless these local roots are explicitly configured.
+  # The directories must already exist so the runtime can canonicalize them.
+  allowed_local_upload_roots:
+    - /tmp/remote-exec-mcp-staging
+  allowed_local_download_roots:
+    - /tmp/remote-exec-mcp-staging
+
 targets:
   local-test:
     transport:
@@ -7,6 +20,8 @@ targets:
       user: deploy
       auth:
         type: key
+        # The environment variable contains the PEM/OpenSSH private-key contents,
+        # not a path to the key file.
         secret_ref: env:REMOTE_EXEC_SSH_KEY
       host_key_policy: strict
       # Optional. Defaults to the current user's ~/.ssh/known_hosts.
@@ -20,6 +35,7 @@ targets:
         - /tmp/remote-exec-mcp
       allowed_download_roots:
         - /var/log
+      # File transfer remains disabled for a target unless this is configured.
       max_transfer_bytes: 104857600
 
 tasks:
