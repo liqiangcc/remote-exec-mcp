@@ -28,12 +28,12 @@ Tests cover:
 
 ## Disposable SSH integration test
 
-`tests/ssh_integration.rs` starts an in-process `russh` server on an ephemeral loopback port with a generated test-only host key. The client resolves a test password through the same `EnvSecretProvider` used by the runtime, persists the generated host key through explicit `accept-new`, establishes a real SSH session, and executes a structured command through `SshCommandExecutor`.
+`tests/ssh_integration.rs` starts an in-process `russh` server on an ephemeral loopback port with a fixed test-only host key and an in-memory `TestSecretProvider`. The client persists the host key through explicit `accept-new`, authenticates with a password resolved through the `SecretProvider` interface, establishes a real SSH session, and executes a structured command through `SshCommandExecutor`.
 
 The integration chain is:
 
 ```text
-EnvSecretProvider
+SecretProvider interface
   -> SshTransport
   -> accept-new host-key persistence
   -> password authentication
@@ -42,4 +42,4 @@ EnvSecretProvider
   -> stdout/stderr/exit status
 ```
 
-No external SSH server or production credential is required. This integration test complements rather than replaces the deterministic unit-level threat tests above.
+The fixture treats an EOF during connection teardown as a normal disposable-server shutdown condition; correctness is asserted on the completed client exchange, which prevents teardown ordering from making the test flaky. No external SSH server or production credential is required. This integration test complements rather than replaces the deterministic unit-level threat tests above.
