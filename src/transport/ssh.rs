@@ -65,7 +65,10 @@ where
         let private_key = keys::decode_secret_key(private_key.expose(), None).map_err(|_| {
             AppError::new(
                 ErrorCode::InvalidPrivateKey,
-                format!("failed to decode SSH private key from reference {}", secret_ref.0),
+                format!(
+                    "failed to decode SSH private key from reference {}",
+                    secret_ref.0
+                ),
             )
         })?;
 
@@ -196,7 +199,10 @@ struct HostKeyHandler {
 impl client::Handler for HostKeyHandler {
     type Error = SshClientError;
 
-    async fn check_server_key(&mut self, server_public_key: &PublicKey) -> Result<bool, Self::Error> {
+    async fn check_server_key(
+        &mut self,
+        server_public_key: &PublicKey,
+    ) -> Result<bool, Self::Error> {
         self.verifier
             .verify(server_public_key)
             .map(|_| true)
@@ -231,7 +237,10 @@ impl HostKeyVerifier {
         let known = self.check(public_key).map_err(|error| {
             AppError::new(
                 ErrorCode::HostKeyRejected,
-                format!("SSH host key verification failed for {}:{}: {error}", self.host, self.port),
+                format!(
+                    "SSH host key verification failed for {}:{}: {error}",
+                    self.host, self.port
+                ),
             )
         })?;
 
@@ -242,12 +251,18 @@ impl HostKeyVerifier {
         match self.policy {
             HostKeyPolicy::Strict => Err(AppError::new(
                 ErrorCode::HostKeyRejected,
-                format!("SSH host key is not trusted for {}:{}", self.host, self.port),
+                format!(
+                    "SSH host key is not trusted for {}:{}",
+                    self.host, self.port
+                ),
             )),
             HostKeyPolicy::AcceptNew => self.learn(public_key).map_err(|error| {
                 AppError::new(
                     ErrorCode::HostKeyRejected,
-                    format!("failed to record SSH host key for {}:{}: {error}", self.host, self.port),
+                    format!(
+                        "failed to record SSH host key for {}:{}: {error}",
+                        self.host, self.port
+                    ),
                 )
             }),
         }
