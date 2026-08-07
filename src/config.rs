@@ -1,0 +1,109 @@
+use std::collections::BTreeMap;
+use std::fs;
+use std::path::Path;
+
+use anyhow::{Context, Result};
+use serde::Deserialize;
+
+use crate::domain::{ParameterDefinition, TaskDefinition};
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct Config {
+    #[serde(default)]
+    pub targets: BTreeMap<String, TargetConfig>,
+    #[serde(default)]
+    pub tasks: BTreeMap<String, TaskConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TargetConfig {
+    pub transport: TargetTransportConfig,
+    #[serde(default)]
+    pub policy: TargetPolicyConfig,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TargetTransportConfig {
+    Ssh {
+        host: String,
+        #[serde(default = "default_port")]
+        port: u16,
+        user: String,
+        auth: AuthConfig,
+        #[serde(default)]
+        host_key_policy: HostKeyPolicy,
+    },
+}
+
+fn default_port() -> u16 {
+    22
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum AuthConfig {
+    Key { secret_ref: String },
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum HostKeyPolicy {
+    #[default]
+    Strict,
+    AcceptNew,
+}
+
+#[derive(Debug, Clone, Default, Deserialize)]
+pub struct TargetPolicyConfig {
+    #[serde(default)]
+    pub allowed_tasks: Vec<String>,
+    #[serde(default)]
+    pub allowed_upload_roots: Vec<String>,
+    #[serde(default)]
+    pub allowed_download_roots: Vec<String>,
+    pub max_transfer_bytes: Option<u64>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct TaskConfig {
+    pub description: Option<String>,
+    #[serde(default)]
+    pub parameters: BTreeMap<String, ParameterDefinition>,
+    pub execution: TaskExecutionConfig,
+    #[serde(default = "default_task_timeout")]
+    pub timeout_seconds: u64,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum TaskExecutionConfig {
+    Command {
+        program: String,
+        #[serde(default)]
+        args: Vec<String>,
+    },
+}
+
+fn default_task_timeout() -> u64 {
+    30
+}
+
+impl Config {
+    pub fn load(path: impl AsRef<Path>) -> Result<Self> {
+        let path = path.as_ref();
+        let raw = fs::read_to_string(path)
+            .with_context(|| format!("failed to read config {}", path.display()))?;
+        serde_yaml::from_str(&raw)
+            .with_context(|| format!("failed to parse config {}", path.display()))
+    }
+
+    pub fn task_definition(&self, name: &str) -> Option<TaskDefinition> {
+        self.tasks.get(name).map(|task| TaskDefinition {
+            name: name.to_owned(),
+            description: task.description.clone(),
+            parameters: task.parameters.clone(),
+            timeout_seconds: task.timeout_seconds,
+        })
+    }
+}
