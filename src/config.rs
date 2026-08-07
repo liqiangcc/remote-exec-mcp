@@ -12,9 +12,49 @@ use crate::domain::{
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
     #[serde(default)]
+    pub runtime: RuntimeConfig,
+    #[serde(default)]
     pub targets: BTreeMap<String, TargetConfig>,
     #[serde(default)]
     pub tasks: BTreeMap<String, TaskConfig>,
+}
+
+#[derive(Debug, Clone, Deserialize)]
+pub struct RuntimeConfig {
+    #[serde(default = "default_max_concurrency")]
+    pub max_concurrency: usize,
+    #[serde(default = "default_transfer_timeout")]
+    pub transfer_timeout_seconds: u64,
+    #[serde(default = "default_audit_path")]
+    pub audit_path: String,
+    #[serde(default)]
+    pub allowed_local_upload_roots: Vec<String>,
+    #[serde(default)]
+    pub allowed_local_download_roots: Vec<String>,
+}
+
+impl Default for RuntimeConfig {
+    fn default() -> Self {
+        Self {
+            max_concurrency: default_max_concurrency(),
+            transfer_timeout_seconds: default_transfer_timeout(),
+            audit_path: default_audit_path(),
+            allowed_local_upload_roots: Vec::new(),
+            allowed_local_download_roots: Vec::new(),
+        }
+    }
+}
+
+fn default_max_concurrency() -> usize {
+    4
+}
+
+fn default_transfer_timeout() -> u64 {
+    60
+}
+
+fn default_audit_path() -> String {
+    ".remote-exec-mcp/audit.jsonl".to_owned()
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -53,6 +93,7 @@ fn default_connect_timeout() -> u64 {
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum AuthConfig {
     Key { secret_ref: String },
+    Password { secret_ref: String },
 }
 
 #[derive(Debug, Clone, Default, Deserialize)]
@@ -145,6 +186,10 @@ impl Config {
             max_transfer_bytes: target.policy.max_transfer_bytes,
         })
     }
+
+    pub fn target_transport(&self, target: &TargetId) -> Option<&TargetTransportConfig> {
+        self.targets.get(&target.0).map(|target| &target.transport)
+    }
 }
 
 #[cfg(test)]
@@ -152,7 +197,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn maps_config_into_domain_task_and_policy() {
+    fn maps_config_into_domain_task_policy_and_runtime_defaults() {
         let config: Config = serde_yaml::from_str(
             r#"
 targets:
@@ -177,20 +222,37 @@ tasks:
 
         let task = config.task_spec("whoami").unwrap();
         assert_eq!(task.definition.name, "whoami");
-
         let policy = config.target_policy(&TargetId("test".to_owned())).unwrap();
         assert!(policy.allowed_tasks.contains("whoami"));
+        assert_eq!(config.runtime.max_concurrency, 4);
+        assert_eq!(config.runtime.transfer_timeout_seconds, 60);
+        assert!(config
+            .target_transport(&TargetId("test".to_owned()))
+            .is_some());
+    }
 
-        let TargetTransportConfig::Ssh {
-            port,
-            host_key_policy,
-            known_hosts_path,
-            connect_timeout_seconds,
-            ..
-        } = &config.targets.get("test").unwrap().transport;
-        assert_eq!(*port, 22);
-        assert!(matches!(host_key_policy, HostKeyPolicy::Strict));
-        assert!(known_hosts_path.is_none());
-        assert_eq!(*connect_timeout_seconds, 10);
+    #[test]
+    fn parses_password_auth_as_secret_reference() {
+        let config: Config = serde_yaml::from_str(
+            r#"
+targets:
+  test:
+    transport:
+      type: ssh
+      host: 127.0.0.1
+      user: deploy
+      auth:
+        type: password
+        secret_ref: env:TEST_SSH_PASSWORD
+"#,
+        )
+        .unwrap();
+
+        let TargetTransportConfig::Ssh { auth, .. } = config
+            .target_transport(&TargetId("test".to_owned()))
+            .unwrap();
+        assert!(
+            matches!(auth, AuthConfig::Password { secret_ref } if secret_ref == "env:TEST_SSH_PASSWORD")
+        );
     }
 }

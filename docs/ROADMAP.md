@@ -11,43 +11,60 @@
 ## Phase 1 — Core domain and application
 - [x] Stable error model
 - [x] Target/task catalog
-- [x] typed parameter validation
-- [x] task planner -> execution plan
-- [x] policy engine interface
-- [x] audit sink interface
-- [x] secret provider interface
-- [x] application use-case orchestration
+- [x] Typed parameter validation
+- [x] Task planner -> execution plan
+- [x] Policy engine interface
+- [x] Audit sink interface
+- [x] Secret provider interface
+- [x] Application use-case orchestration
 
 ## Phase 2 — SSH infrastructure
 - [x] SSH transport/session
-- [x] key authentication through secret references
+- [x] Key authentication through secret references
+- [x] Password authentication through secret references
 - [x] known_hosts verification
-- [x] connection timeout
-- [ ] SSH command executor
-- [ ] bounded stdout/stderr
-- [ ] SFTP/SCP file transfer
-- [ ] transfer size/path limits
+- [x] Connection/authentication timeout
+- [x] SSH command executor
+- [x] Bounded stdout/stderr
+- [x] SFTP file transfer
+- [x] Transfer size/path limits
 
 ## Phase 3 — MCP adapter
-- [ ] list_targets
-- [ ] check_target
-- [ ] list_tasks
-- [ ] run_task
-- [ ] upload_file
-- [ ] download_file
+- [x] stdio MCP server
+- [x] list_targets
+- [x] check_target
+- [x] list_tasks
+- [x] run_task
+- [x] upload_file
+- [x] download_file
+- [x] Structured MCP error mapping
 
-## Phase 4 — Production hardening
-- [ ] concurrency limits
-- [ ] cancellation
-- [ ] structured audit persistence
-- [ ] password/SSH-agent providers
-- [ ] integration tests with disposable SSH server
-- [ ] threat-model tests
+## Phase 4 — v0.1 production hardening
+- [x] Process-level concurrency limits
+- [x] Command/transfer timeouts and best-effort channel cancellation
+- [x] Structured JSONL audit persistence
+- [x] Local filesystem allowlist boundary for MCP file tools
+- [x] Threat-model regression tests for task validation, command quoting, host keys, local/remote paths, and transfer limits
+- [x] Fail-closed audit/config initialization
+- [x] Disposable in-process SSH integration test
 
-## Phase 5 — Capability adapters/workflows
-- [ ] systemd adapter
+## Post-v0.1 hardening options
+
+These are useful extensions, but they are not prerequisites for the generic v0.1 remote-execution core. See `V0_1_SCOPE.md`.
+
+- [ ] SSH-agent identity provider / identity-selection policy
+- [ ] Strong remote-process/process-tree termination semantics after timeout
+- [ ] Crash-proof atomic replacement on every remote filesystem
+- [ ] Orphan temporary-file garbage collection after process-level interruption
+- [ ] Cross-process/distributed rate limiting
+
+## Capability adapters/workflows
+
+These are deliberately separate higher-level concerns rather than unfinished transport work:
+
+- [ ] systemd semantic adapter
 - [ ] Docker adapter
 - [ ] Kubernetes adapter
 - [ ] Java/JAR deployment workflow
-- [ ] rollback workflow
-- [ ] post-deploy verification hooks
+- [ ] Rollback workflow
+- [ ] Post-deploy verification hooks
