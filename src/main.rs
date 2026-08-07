@@ -28,11 +28,13 @@ fn config_path() -> Result<String> {
     match args.next() {
         None => Ok(std::env::var("REMOTE_EXEC_MCP_CONFIG")
             .unwrap_or_else(|_| "config/example.yaml".to_owned())),
-        Some(flag) if flag == "--config" => args
-            .next()
-            .context("--config requires a path argument"),
+        Some(flag) if flag == "--config" => {
+            args.next().context("--config requires a path argument")
+        }
         Some(flag) if flag == "--help" || flag == "-h" => {
-            eprintln!("Usage: remote-exec-mcp [--config PATH]\nEnvironment: REMOTE_EXEC_MCP_CONFIG");
+            eprintln!(
+                "Usage: remote-exec-mcp [--config PATH]\nEnvironment: REMOTE_EXEC_MCP_CONFIG"
+            );
             std::process::exit(0);
         }
         Some(other) => bail!("unexpected argument: {other}; use --config PATH"),
