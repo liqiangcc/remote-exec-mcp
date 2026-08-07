@@ -82,9 +82,6 @@ mod tests {
     #[test]
     fn display_keeps_code_visible() {
         let error = AppError::new(ErrorCode::InvalidParameter, "service is invalid");
-        assert_eq!(
-            error.to_string(),
-            "invalid_parameter: service is invalid"
-        );
+        assert_eq!(error.to_string(), "invalid_parameter: service is invalid");
     }
 }

@@ -88,7 +88,9 @@ mod tests {
             parameters: BTreeMap::new(),
         };
 
-        let error = DefaultPolicyEngine.authorize(&request, &policy).unwrap_err();
+        let error = DefaultPolicyEngine
+            .authorize(&request, &policy)
+            .unwrap_err();
         assert_eq!(error.code, ErrorCode::TaskNotAllowed);
     }
 

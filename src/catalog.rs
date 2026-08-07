@@ -26,12 +26,7 @@ impl<'a> ConfigCatalog<'a> {
 
 impl Catalog for ConfigCatalog<'_> {
     fn list_targets(&self) -> Vec<TargetId> {
-        self.config
-            .targets
-            .keys()
-            .cloned()
-            .map(TargetId)
-            .collect()
+        self.config.targets.keys().cloned().map(TargetId).collect()
     }
 
     fn list_tasks(&self, target: &TargetId) -> AppResult<Vec<TaskDefinition>> {
@@ -114,17 +109,17 @@ tasks:
     description: Show status
     execution:
       type: command
-      program: true
+      program: "true"
   restart:
     description: Restart service
     execution:
       type: command
-      program: true
+      program: "true"
   hidden:
     description: Globally defined but not allowed anywhere
     execution:
       type: command
-      program: true
+      program: "true"
 "#,
         )
         .unwrap()
@@ -146,9 +141,7 @@ tasks:
         let config = config();
         let catalog = ConfigCatalog::new(&config);
 
-        let tasks = catalog
-            .list_tasks(&TargetId("alpha".to_owned()))
-            .unwrap();
+        let tasks = catalog.list_tasks(&TargetId("alpha".to_owned())).unwrap();
         let names: Vec<_> = tasks.into_iter().map(|task| task.name).collect();
 
         assert_eq!(names, vec!["status"]);
