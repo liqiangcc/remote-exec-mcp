@@ -8,27 +8,36 @@ The MCP server may receive incorrect, overly broad, or adversarial instructions 
 
 1. Deny by default.
 2. Do not expose a general shell in the default profile.
-3. Validate every model-controlled parameter before planning.
-4. Authorize before execution.
+3. Validate every model-controlled task parameter before planning.
+4. Authorize target/task intent before execution.
 5. Keep secrets behind opaque references/providers.
 6. Enforce least privilege in both MCP policy and remote OS accounts.
 7. Bound time, output, concurrency, and file sizes.
 8. Verify target identity.
-9. Audit attempted privileged operations.
+9. Audit network-backed and mutating operations.
 10. Keep security policy independent from transport/executor implementations.
 
 ## Authorization pipeline
 
 ```text
 MCP Request
-   -> schema validation
+   -> MCP schema decoding
    -> target/task lookup
-   -> policy evaluation
+   -> target policy evaluation
+   -> typed parameter validation
    -> execution planning
    -> executor
 ```
 
 A denied request must never be transformed into an executable command.
+
+## MCP boundary
+
+The shipped MCP adapter exposes six tools: `list_targets`, `check_target`, `list_tasks`, `run_task`, `upload_file`, and `download_file`.
+
+The adapter owns protocol schemas and response conversion only. It does not construct shell commands, resolve credentials, decide policy, or reach into SSH directly. Domain failures are exposed as structured tool errors with stable machine-readable error codes.
+
+`run_task` has no raw-command field. The caller provides only a target, an operator-defined task name, and typed task parameters.
 
 ## Secrets
 
@@ -40,7 +49,7 @@ auth:
   secret_ref: env:REMOTE_EXEC_SSH_KEY
 ```
 
-A `SecretProvider` resolves the reference at runtime. The first provider reads explicitly prefixed `env:` references. Additional providers such as Vault or a password manager can implement the same interface later.
+A `SecretProvider` resolves the reference at runtime. The environment provider reads explicitly prefixed `env:` references. The referenced variable contains private-key contents, not a path.
 
 Resolved secret values use a redacted debug representation and are zeroized when dropped. MCP responses, task definitions, and audit events never contain private keys, passwords, tokens, or secret environment values.
 
@@ -54,7 +63,7 @@ Connection and public-key authentication are bounded by the configured SSH conne
 
 ## Command safety
 
-The model selects a named task and typed parameters. Operator-owned planning metadata resolves that request into a program + argv execution plan.
+The model selects a named task and typed parameters. Operator-owned planning metadata resolves that request into a `program + argv` execution plan.
 
 Prefer:
 
@@ -67,30 +76,37 @@ SSH `exec` transports a command string and the server passes it to a shell. The 
 
 This quoting step is a transport serialization detail, not authorization. Policy and validation must already have completed before the command reaches the executor.
 
-Standard output and standard error are captured independently with bounded byte limits. Truncation is reported in `ExecutionResult` instead of allowing unbounded memory growth. Command execution is also time-bounded; timeout handling performs a best-effort SSH channel close. Strong remote-process cancellation remains a separate production-hardening capability.
+Standard output and standard error are captured independently with bounded byte limits. Truncation is reported in `ExecutionResult` instead of allowing unbounded memory growth. Command execution is time-bounded; timeout handling performs a best-effort SSH channel close. Strong remote-process termination after an adversarial remote program ignores channel closure is intentionally not claimed by the v0.1 core.
 
-A future explicitly shell-backed task must be a separate higher-risk capability with stronger policy controls.
+An explicitly shell-backed task, if ever added, must be a separate higher-risk capability with stronger policy controls.
 
 ## Filesystem safety
 
-The file-transfer adapter uses SFTP over an already-authenticated SSH session. Policy owns the allowed upload/download roots and maximum byte count; the SFTP adapter only enforces those constraints.
+File transfer uses SFTP over an authenticated SSH session. Policy owns the allowed remote upload/download roots and maximum byte count; the SFTP adapter enforces those constraints. The runtime independently owns the local filesystem boundary.
 
 Remote paths are treated as POSIX paths independent of the MCP host operating system. Before transfer the adapter:
+
 - requires absolute remote paths;
 - rejects `..` traversal and NUL bytes;
 - rejects `/` as a configured root;
 - canonicalizes configured roots on the remote server;
 - canonicalizes an existing remote source/destination, or the parent directory for a new upload;
-- re-checks the canonical path against the canonical roots, preventing symlink escape;
+- re-checks the canonical path against canonical roots, preventing symlink escape;
 - enforces `max_transfer_bytes` from metadata when available and again while streaming;
-- transfers through bounded timeouts;
+- applies bounded transfer timeouts;
 - avoids overwrite by default.
 
-Uploads first write to a uniquely named temporary file in the authorized destination directory and only rename it into place after the byte limit and sync checks succeed. Downloads similarly use a local temporary file so ordinary failures do not expose a partially written destination.
+The MCP runtime separately canonicalizes local upload sources or local download parents and requires them to remain inside explicitly configured `runtime.allowed_local_upload_roots` / `runtime.allowed_local_download_roots`. Empty local-root lists disable the corresponding file capability. Existing local symlink destinations are rejected by the SFTP adapter.
 
-Overwrite is intentionally explicit. Current cross-platform replacement semantics may remove the old destination immediately before rename; fully atomic replacement and cleanup of orphan temporary files after forced interruption are production-hardening work.
+Uploads first write to a uniquely named temporary file in the authorized destination directory and rename it into place only after byte-limit and sync checks succeed. Downloads similarly use a local temporary file so ordinary failures do not expose a partially written destination.
 
-The infrastructure `FileTransfer` API currently accepts local filesystem paths, but the future MCP adapter must not expose arbitrary model-controlled local paths. Upload/download tools should use a trusted staging directory or connector-provided file handles and apply a separate local-path boundary before calling this adapter.
+Overwrite is explicit. Current cross-platform replacement may remove an existing destination immediately before rename, so the core does not claim crash-proof atomic replacement on every SFTP server/filesystem. Orphan cleanup after process-level interruption remains a future hardening option.
+
+## Concurrency and denial-of-service bounds
+
+All network-backed MCP operations acquire a permit from a global semaphore configured by `runtime.max_concurrency`. A zero value is rejected at startup. Command output, task duration, transfer duration, and transfer bytes are bounded separately.
+
+This is a process-level concurrency boundary, not a distributed rate limiter. Multiple server processes should be controlled independently by the deployment environment if a shared global limit is needed.
 
 ## Remote account
 
@@ -98,26 +114,31 @@ The SSH account should be restricted independently from MCP. If privileged opera
 
 ## Audit
 
-Record at least:
-- request/execution ID;
+The runtime persists JSONL audit events for network-backed and mutating operations. Records include:
+
+- request ID;
 - timestamp;
 - target;
 - operation/task;
-- sanitized parameters;
-- policy decision;
+- policy decision once known;
 - outcome;
 - exit code where applicable;
-- duration.
+- duration where applicable.
 
-Never record credentials or raw secret values.
+A `started` record has no policy decision because authorization may not have happened yet. A policy denial records `deny`; post-authorization execution outcomes record `allow`.
+
+Task parameter values are intentionally omitted by default. This minimizes accidental leakage while preserving enough information to correlate an action with the configured task and target. Secrets are never audited.
+
+Audit initialization is fail-closed: if the configured audit file cannot be opened, the runtime does not start. An audit write error is surfaced instead of being silently ignored.
 
 ## Dangerous optional capabilities
 
 These must never silently appear in the default profile:
+
 - arbitrary shell execution;
 - unrestricted sudo;
 - arbitrary environment injection;
 - unrestricted remote path access;
-- arbitrary model-controlled local filesystem paths;
+- unrestricted model-controlled local filesystem paths;
 - host-key verification disablement;
 - model-controlled changes to policy/credentials.
