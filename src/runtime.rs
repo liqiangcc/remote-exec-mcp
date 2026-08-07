@@ -274,7 +274,8 @@ impl RemoteExecService {
             _permit: permit,
         };
 
-        self.audit.record(&context.event("started", None, None, None))
+        self.audit
+            .record(&context.event("started", None, None, None))
             .map_err(|audit_error| {
                 AppError::new(
                     ErrorCode::Internal,
@@ -287,39 +288,29 @@ impl RemoteExecService {
     fn finish_simple<T>(&self, operation: &OperationContext, result: &AppResult<T>) {
         match result {
             Ok(_) => self.record_final(operation.event("succeeded", None, None, None)),
-            Err(app_error) => self.record_final(operation.event(
-                "failed",
-                Some(app_error.code),
-                None,
-                None,
-            )),
+            Err(app_error) => {
+                self.record_final(operation.event("failed", Some(app_error.code), None, None))
+            }
         }
     }
 
-    fn finish_execution(
-        &self,
-        operation: &OperationContext,
-        result: &AppResult<ExecutionResult>,
-    ) {
+    fn finish_execution(&self, operation: &OperationContext, result: &AppResult<ExecutionResult>) {
         match result {
             Ok(execution) => {
-                let outcome = if execution.success { "succeeded" } else { "failed" };
+                let outcome = if execution.success {
+                    "succeeded"
+                } else {
+                    "failed"
+                };
                 self.record_final(operation.event(outcome, None, execution.exit_code, None));
             }
-            Err(app_error) => self.record_final(operation.event(
-                "failed",
-                Some(app_error.code),
-                None,
-                None,
-            )),
+            Err(app_error) => {
+                self.record_final(operation.event("failed", Some(app_error.code), None, None))
+            }
         }
     }
 
-    fn finish_transfer(
-        &self,
-        operation: &OperationContext,
-        result: &AppResult<TransferResult>,
-    ) {
+    fn finish_transfer(&self, operation: &OperationContext, result: &AppResult<TransferResult>) {
         match result {
             Ok(transfer) => self.record_final(operation.event(
                 "succeeded",
@@ -327,12 +318,9 @@ impl RemoteExecService {
                 None,
                 Some(transfer.bytes_transferred),
             )),
-            Err(app_error) => self.record_final(operation.event(
-                "failed",
-                Some(app_error.code),
-                None,
-                None,
-            )),
+            Err(app_error) => {
+                self.record_final(operation.event("failed", Some(app_error.code), None, None))
+            }
         }
     }
 
