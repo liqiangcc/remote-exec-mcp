@@ -29,12 +29,15 @@
 - [x] transfer size/path limits
 
 ## Phase 3 — MCP adapter
-- [ ] list_targets
-- [ ] check_target
-- [ ] list_tasks
-- [ ] run_task
-- [ ] upload_file
-- [ ] download_file
+- [x] stdio MCP server
+- [x] list_targets
+- [x] check_target
+- [x] list_tasks
+- [x] run_task
+- [x] upload_file
+- [x] download_file
+- [x] stable application error codes preserved in MCP errors
+- [x] local MCP-host upload/download roots
 
 ## Phase 4 — Production hardening
 - [ ] concurrency limits
