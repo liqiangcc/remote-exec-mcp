@@ -47,7 +47,10 @@ pub struct JsonlAuditSink {
 impl JsonlAuditSink {
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
         let path = path.as_ref().to_path_buf();
-        if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        if let Some(parent) = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
             std::fs::create_dir_all(parent).with_context(|| {
                 format!("failed to create audit directory {}", parent.display())
             })?;
@@ -77,7 +80,8 @@ impl AuditSink for JsonlAuditSink {
             .lock()
             .map_err(|_| anyhow!("audit log mutex poisoned"))?;
         serde_json::to_writer(&mut *file, event).context("failed to serialize audit event")?;
-        file.write_all(b"\n").context("failed to terminate audit record")?;
+        file.write_all(b"\n")
+            .context("failed to terminate audit record")?;
         file.flush().context("failed to flush audit record")?;
         Ok(())
     }
