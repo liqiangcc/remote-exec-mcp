@@ -127,6 +127,17 @@ where
             remote_identity: format!("{user}@{host}:{port}"),
         })
     }
+
+    async fn check_ssh(&self, target: &TargetTransportConfig) -> AppResult<ConnectionInfo> {
+        let session = self.connect_ssh(target).await?;
+        let remote_identity = session.remote_identity().to_owned();
+        drop(session);
+
+        Ok(ConnectionInfo {
+            reachable: true,
+            remote_identity: Some(remote_identity),
+        })
+    }
 }
 
 impl<P> Transport for SshTransport<P>
@@ -146,16 +157,7 @@ where
         &self,
         target: &TargetTransportConfig,
     ) -> impl std::future::Future<Output = AppResult<ConnectionInfo>> + Send {
-        async move {
-            let session = self.connect_ssh(target).await?;
-            let remote_identity = session.remote_identity().to_owned();
-            drop(session);
-
-            Ok(ConnectionInfo {
-                reachable: true,
-                remote_identity: Some(remote_identity),
-            })
-        }
+        self.check_ssh(target)
     }
 }
 
