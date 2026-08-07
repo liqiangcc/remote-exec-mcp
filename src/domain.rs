@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
@@ -6,7 +6,7 @@ use serde_json::Value;
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TargetId(pub String);
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct TaskRequest {
     pub target: TargetId,
     pub task: String,
@@ -14,7 +14,7 @@ pub struct TaskRequest {
     pub parameters: BTreeMap<String, Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TaskDefinition {
     pub name: String,
     pub description: Option<String>,
@@ -28,7 +28,7 @@ fn default_timeout_seconds() -> u64 {
     30
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ParameterDefinition {
     #[serde(rename = "type")]
     pub kind: ParameterType,
@@ -37,7 +37,7 @@ pub struct ParameterDefinition {
     pub required: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
 pub enum ParameterType {
     String,
@@ -45,14 +45,37 @@ pub enum ParameterType {
     Boolean,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// A task remains an intent-level definition. The template is resolved into an
+/// ExecutionPlan only after authorization and parameter validation.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TaskSpec {
+    pub definition: TaskDefinition,
+    pub execution: ExecutionTemplate,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ExecutionTemplate {
+    Command { program: String, args: Vec<String> },
+}
+
+/// Target policy is a domain value object. Security logic does not depend on
+/// the YAML/config representation used by infrastructure code.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct TargetPolicy {
+    pub allowed_tasks: BTreeSet<String>,
+    pub allowed_upload_roots: Vec<String>,
+    pub allowed_download_roots: Vec<String>,
+    pub max_transfer_bytes: Option<u64>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExecutionPlan {
     pub target: TargetId,
     pub operation: ExecutionOperation,
     pub timeout_seconds: u64,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum ExecutionOperation {
     Command { command: CommandSpec },
@@ -60,21 +83,21 @@ pub enum ExecutionOperation {
     Download { transfer: TransferSpec },
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct CommandSpec {
     pub program: String,
     #[serde(default)]
     pub args: Vec<String>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TransferSpec {
     pub source: String,
     pub destination: String,
     pub overwrite: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExecutionResult {
     pub success: bool,
     pub exit_code: Option<i32>,

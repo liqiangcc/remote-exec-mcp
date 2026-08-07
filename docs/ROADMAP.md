@@ -11,12 +11,12 @@
 ## Phase 1 — Core domain and application
 - [ ] Stable error model
 - [ ] Target/task catalog
-- [ ] typed parameter validation
-- [ ] task planner -> execution plan
-- [ ] policy engine interface
-- [ ] audit sink interface
-- [ ] secret provider interface
-- [ ] application use-case orchestration
+- [x] typed parameter validation
+- [x] task planner -> execution plan
+- [x] policy engine interface
+- [x] audit sink interface
+- [x] secret provider interface
+- [x] application use-case orchestration
 
 ## Phase 2 — SSH infrastructure
 - [ ] SSH transport/session

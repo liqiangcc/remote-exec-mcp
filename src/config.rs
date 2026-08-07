@@ -5,7 +5,9 @@ use std::path::Path;
 use anyhow::{Context, Result};
 use serde::Deserialize;
 
-use crate::domain::{ParameterDefinition, TaskDefinition};
+use crate::domain::{
+    ExecutionTemplate, ParameterDefinition, TargetId, TargetPolicy, TaskDefinition, TaskSpec,
+};
 
 #[derive(Debug, Clone, Deserialize)]
 pub struct Config {
@@ -105,5 +107,71 @@ impl Config {
             parameters: task.parameters.clone(),
             timeout_seconds: task.timeout_seconds,
         })
+    }
+
+    pub fn task_spec(&self, name: &str) -> Option<TaskSpec> {
+        self.tasks.get(name).map(|task| {
+            let execution = match &task.execution {
+                TaskExecutionConfig::Command { program, args } => ExecutionTemplate::Command {
+                    program: program.clone(),
+                    args: args.clone(),
+                },
+            };
+
+            TaskSpec {
+                definition: TaskDefinition {
+                    name: name.to_owned(),
+                    description: task.description.clone(),
+                    parameters: task.parameters.clone(),
+                    timeout_seconds: task.timeout_seconds,
+                },
+                execution,
+            }
+        })
+    }
+
+    pub fn target_policy(&self, target: &TargetId) -> Option<TargetPolicy> {
+        self.targets.get(&target.0).map(|target| TargetPolicy {
+            allowed_tasks: target.policy.allowed_tasks.iter().cloned().collect(),
+            allowed_upload_roots: target.policy.allowed_upload_roots.clone(),
+            allowed_download_roots: target.policy.allowed_download_roots.clone(),
+            max_transfer_bytes: target.policy.max_transfer_bytes,
+        })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn maps_config_into_domain_task_and_policy() {
+        let config: Config = serde_yaml::from_str(
+            r#"
+targets:
+  test:
+    transport:
+      type: ssh
+      host: 127.0.0.1
+      user: deploy
+      auth:
+        type: key
+        secret_ref: ssh-key:test
+    policy:
+      allowed_tasks: [whoami]
+tasks:
+  whoami:
+    execution:
+      type: command
+      program: whoami
+"#,
+        )
+        .unwrap();
+
+        let task = config.task_spec("whoami").unwrap();
+        assert_eq!(task.definition.name, "whoami");
+
+        let policy = config.target_policy(&TargetId("test".to_owned())).unwrap();
+        assert!(policy.allowed_tasks.contains("whoami"));
     }
 }
