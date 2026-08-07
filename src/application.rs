@@ -62,9 +62,7 @@ pub struct PlanningService<'a, V, E, P> {
     planner: P,
 }
 
-impl<'a>
-    PlanningService<'a, DefaultRequestValidator, DefaultPolicyEngine, DefaultTaskPlanner>
-{
+impl<'a> PlanningService<'a, DefaultRequestValidator, DefaultPolicyEngine, DefaultTaskPlanner> {
     pub fn new(config: &'a Config) -> Self {
         Self {
             config,
@@ -112,8 +110,8 @@ where
 }
 
 fn render_template(template: &str, parameters: &BTreeMap<String, Value>) -> Result<String> {
-    let placeholder = Regex::new(r"\{\{([a-zA-Z0-9_.-]+)\}\}")
-        .expect("static placeholder regex must be valid");
+    let placeholder =
+        Regex::new(r"\{\{([a-zA-Z0-9_.-]+)\}\}").expect("static placeholder regex must be valid");
     let mut rendered = String::with_capacity(template.len());
     let mut last = 0;
 
