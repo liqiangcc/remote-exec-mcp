@@ -1,3 +1,5 @@
+pub mod task_execution_service;
+
 use std::collections::BTreeMap;
 
 use regex::Regex;
