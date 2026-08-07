@@ -225,10 +225,8 @@ tasks:
         assert!(policy.allowed_tasks.contains("whoami"));
         assert_eq!(config.runtime.max_concurrency, 4);
         assert_eq!(config.runtime.transfer_timeout_seconds, 60);
-        assert!(
-            config
-                .target_transport(&TargetId("test".to_owned()))
-                .is_some()
-        );
+        assert!(config
+            .target_transport(&TargetId("test".to_owned()))
+            .is_some());
     }
 }
