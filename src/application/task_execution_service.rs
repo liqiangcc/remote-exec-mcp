@@ -103,7 +103,10 @@ where
     R: ExecutionRunner + Sync,
     A: AuditSink + Sync,
 {
-    async fn execute_inner(&self, request: TaskExecutionRequest) -> AppResult<TaskExecutionOutcome> {
+    async fn execute_inner(
+        &self,
+        request: TaskExecutionRequest,
+    ) -> AppResult<TaskExecutionOutcome> {
         let execution_id = next_execution_id();
         let request = request.into_domain();
 
@@ -147,7 +150,11 @@ where
 
         match self.runner.execute(&plan).await {
             Ok(result) => {
-                let outcome = if result.success { "succeeded" } else { "failed" };
+                let outcome = if result.success {
+                    "succeeded"
+                } else {
+                    "failed"
+                };
                 let audit_recorded = self
                     .audit
                     .record(&audit_event(
