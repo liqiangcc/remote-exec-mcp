@@ -60,11 +60,17 @@ pub struct JsonlAuditSink {
 impl JsonlAuditSink {
     pub fn open(path: impl AsRef<Path>) -> AppResult<Self> {
         let path = path.as_ref();
-        if let Some(parent) = path.parent().filter(|parent| !parent.as_os_str().is_empty()) {
+        if let Some(parent) = path
+            .parent()
+            .filter(|parent| !parent.as_os_str().is_empty())
+        {
             fs::create_dir_all(parent).map_err(|error| {
                 AppError::new(
                     ErrorCode::InvalidConfiguration,
-                    format!("failed to create audit directory {}: {error}", parent.display()),
+                    format!(
+                        "failed to create audit directory {}: {error}",
+                        parent.display()
+                    ),
                 )
             })?;
         }
@@ -92,9 +98,10 @@ impl AuditSink for JsonlAuditSink {
                 format!("failed to serialize audit event: {error}"),
             )
         })?;
-        let mut file = self.file.lock().map_err(|_| {
-            AppError::new(ErrorCode::Internal, "audit log mutex was poisoned")
-        })?;
+        let mut file = self
+            .file
+            .lock()
+            .map_err(|_| AppError::new(ErrorCode::Internal, "audit log mutex was poisoned"))?;
         writeln!(file, "{serialized}").map_err(|error| {
             AppError::new(
                 ErrorCode::Internal,
