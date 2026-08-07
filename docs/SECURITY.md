@@ -37,14 +37,20 @@ Configuration stores references:
 ```yaml
 auth:
   type: key
-  secret_ref: ssh-key:prod
+  secret_ref: env:REMOTE_EXEC_SSH_KEY
 ```
 
-A `SecretProvider` resolves the reference at runtime. MCP responses, task definitions, and audit events never contain private keys, passwords, tokens, or secret environment values.
+A `SecretProvider` resolves the reference at runtime. The first provider reads explicitly prefixed `env:` references. Additional providers such as Vault or a password manager can implement the same interface later.
+
+Resolved secret values use a redacted debug representation and are zeroized when dropped. MCP responses, task definitions, and audit events never contain private keys, passwords, tokens, or secret environment values.
 
 ## SSH host verification
 
-Strict known-host verification is the default. Development-only relaxation such as `accept-new` must be explicit. Disabling verification entirely should require a separate unsafe profile, if supported at all.
+Strict known-host verification is the default. The SSH client checks the server public key against either the configured `known_hosts_path` or the current user's standard `~/.ssh/known_hosts` file.
+
+Development-only `accept-new` is explicit: an unknown host key may be recorded, but a changed key is still rejected. Disabling verification entirely is not supported by the default transport.
+
+Connection and public-key authentication are bounded by the configured SSH connection timeout. A timeout is surfaced separately from authentication failure and host-key rejection.
 
 ## Command safety
 
