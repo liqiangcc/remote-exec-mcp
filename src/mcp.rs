@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use rmcp::{
-    handler::server::{router::tool::ToolRouter, wrapper::Parameters}, tool, tool_handler,
-    tool_router, ErrorData as McpError, ServerHandler,
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters},
+    tool, tool_handler, tool_router, ErrorData as McpError, ServerHandler,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
