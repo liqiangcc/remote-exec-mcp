@@ -69,8 +69,7 @@ impl RemoteExecService {
                     &request_id,
                     target,
                     "check_target",
-                    None,
-                    &[],
+                    AuditSubject::none(),
                     &app_error,
                     None,
                 );
@@ -102,8 +101,7 @@ impl RemoteExecService {
                     &request_id,
                     &request.target,
                     "run_task",
-                    Some(&request.task),
-                    &parameter_names,
+                    AuditSubject::for_task(&request.task, &parameter_names),
                     &app_error,
                     policy_decision,
                 );
@@ -117,8 +115,7 @@ impl RemoteExecService {
                     &request_id,
                     &request.target,
                     "run_task",
-                    Some(&request.task),
-                    &parameter_names,
+                    AuditSubject::for_task(&request.task, &parameter_names),
                     &app_error,
                     Some("allowed"),
                 );
@@ -173,8 +170,7 @@ impl RemoteExecService {
                     &request_id,
                     target,
                     "upload_file",
-                    None,
-                    &[],
+                    AuditSubject::none(),
                     &app_error,
                     None,
                 );
@@ -188,8 +184,7 @@ impl RemoteExecService {
                     &request_id,
                     target,
                     "upload_file",
-                    None,
-                    &[],
+                    AuditSubject::none(),
                     &app_error,
                     None,
                 );
@@ -204,8 +199,7 @@ impl RemoteExecService {
                 &request_id,
                 target,
                 "upload_file",
-                None,
-                &[],
+                AuditSubject::none(),
                 &app_error,
                 None,
             );
@@ -222,8 +216,7 @@ impl RemoteExecService {
                     &request_id,
                     target,
                     "upload_file",
-                    None,
-                    &[],
+                    AuditSubject::none(),
                     &app_error,
                     None,
                 );
@@ -259,8 +252,7 @@ impl RemoteExecService {
                     &request_id,
                     target,
                     "download_file",
-                    None,
-                    &[],
+                    AuditSubject::none(),
                     &app_error,
                     None,
                 );
@@ -274,8 +266,7 @@ impl RemoteExecService {
                     &request_id,
                     target,
                     "download_file",
-                    None,
-                    &[],
+                    AuditSubject::none(),
                     &app_error,
                     None,
                 );
@@ -292,8 +283,7 @@ impl RemoteExecService {
                 &request_id,
                 target,
                 "download_file",
-                None,
-                &[],
+                AuditSubject::none(),
                 &app_error,
                 None,
             );
@@ -310,8 +300,7 @@ impl RemoteExecService {
                     &request_id,
                     target,
                     "download_file",
-                    None,
-                    &[],
+                    AuditSubject::none(),
                     &app_error,
                     None,
                 );
@@ -410,8 +399,7 @@ impl RemoteExecService {
         request_id: &str,
         target: &TargetId,
         operation: &str,
-        task: Option<&str>,
-        parameter_names: &[String],
+        subject: AuditSubject<'_>,
         app_error: &AppError,
         policy_decision: Option<&str>,
     ) {
@@ -420,8 +408,8 @@ impl RemoteExecService {
             timestamp: current_timestamp_millis(),
             target: target.0.clone(),
             operation: operation.to_owned(),
-            task: task.map(str::to_owned),
-            parameter_names: parameter_names.to_vec(),
+            task: subject.task.map(str::to_owned),
+            parameter_names: subject.parameter_names.to_vec(),
             policy_decision: policy_decision.map(str::to_owned),
             outcome: "rejected".to_owned(),
             error_code: Some(app_error.code.as_str().to_owned()),
@@ -459,6 +447,28 @@ impl RemoteExecService {
                 format!("unknown target: {}", target.0),
             )
         })
+    }
+}
+
+#[derive(Clone, Copy)]
+struct AuditSubject<'a> {
+    task: Option<&'a str>,
+    parameter_names: &'a [String],
+}
+
+impl<'a> AuditSubject<'a> {
+    fn none() -> Self {
+        Self {
+            task: None,
+            parameter_names: &[],
+        }
+    }
+
+    fn for_task(task: &'a str, parameter_names: &'a [String]) -> Self {
+        Self {
+            task: Some(task),
+            parameter_names,
+        }
     }
 }
 
