@@ -25,20 +25,17 @@ impl SftpFileTransfer {
         let constraints = constraints.validate()?;
         let duration = Duration::from_secs(constraints.timeout_seconds);
 
-        timeout(
-            duration,
-            self.upload_inner(session, transfer, &constraints),
-        )
-        .await
-        .map_err(|_| {
-            AppError::new(
-                ErrorCode::TransferTimeout,
-                format!(
-                    "upload exceeded transfer timeout of {} seconds",
-                    constraints.timeout_seconds
-                ),
-            )
-        })?
+        timeout(duration, self.upload_inner(session, transfer, &constraints))
+            .await
+            .map_err(|_| {
+                AppError::new(
+                    ErrorCode::TransferTimeout,
+                    format!(
+                        "upload exceeded transfer timeout of {} seconds",
+                        constraints.timeout_seconds
+                    ),
+                )
+            })?
     }
 
     async fn download_bounded(
@@ -98,7 +95,9 @@ impl SftpFileTransfer {
         if sftp
             .try_exists(destination.clone())
             .await
-            .map_err(|error| transfer_failed(format!("failed to inspect remote destination: {error}")))?
+            .map_err(|error| {
+                transfer_failed(format!("failed to inspect remote destination: {error}"))
+            })?
             && !transfer.overwrite
         {
             let _ = sftp.close().await;
@@ -129,7 +128,9 @@ impl SftpFileTransfer {
                 OpenFlags::CREATE | OpenFlags::EXCLUDE | OpenFlags::WRITE,
             )
             .await
-            .map_err(|error| transfer_failed(format!("failed to create remote temp file: {error}")))?;
+            .map_err(|error| {
+                transfer_failed(format!("failed to create remote temp file: {error}"))
+            })?;
 
         let max_plus_one = constraints.max_bytes.saturating_add(1);
         let mut limited = (&mut local).take(max_plus_one);
@@ -160,7 +161,9 @@ impl SftpFileTransfer {
         let destination_exists = sftp
             .try_exists(destination.clone())
             .await
-            .map_err(|error| transfer_failed(format!("failed to recheck remote destination: {error}")))?;
+            .map_err(|error| {
+                transfer_failed(format!("failed to recheck remote destination: {error}"))
+            })?;
         if destination_exists {
             if !transfer.overwrite {
                 let _ = sftp.remove_file(temp_destination.clone()).await;
@@ -170,9 +173,11 @@ impl SftpFileTransfer {
                     "remote destination appeared during upload and overwrite is disabled",
                 ));
             }
-            sftp.remove_file(destination.clone()).await.map_err(|error| {
-                transfer_failed(format!("failed to replace remote destination: {error}"))
-            })?;
+            sftp.remove_file(destination.clone())
+                .await
+                .map_err(|error| {
+                    transfer_failed(format!("failed to replace remote destination: {error}"))
+                })?;
         }
 
         if let Err(error) = sftp
@@ -202,9 +207,13 @@ impl SftpFileTransfer {
         constraints: &TransferConstraints,
     ) -> AppResult<TransferResult> {
         reject_local_symlink_destination(&transfer.destination).await?;
-        if !transfer.overwrite && fs::try_exists(&transfer.destination).await.map_err(|error| {
-            transfer_failed(format!("failed to inspect local destination: {error}"))
-        })? {
+        if !transfer.overwrite
+            && fs::try_exists(&transfer.destination)
+                .await
+                .map_err(|error| {
+                    transfer_failed(format!("failed to inspect local destination: {error}"))
+                })?
+        {
             return Err(AppError::new(
                 ErrorCode::DestinationExists,
                 "local destination already exists and overwrite is disabled",
@@ -219,10 +228,9 @@ impl SftpFileTransfer {
             false,
         )
         .await?;
-        let metadata = sftp
-            .metadata(source.clone())
-            .await
-            .map_err(|error| transfer_failed(format!("failed to inspect remote source: {error}")))?;
+        let metadata = sftp.metadata(source.clone()).await.map_err(|error| {
+            transfer_failed(format!("failed to inspect remote source: {error}"))
+        })?;
         if let Some(size) = metadata.size {
             ensure_size_allowed(size, constraints.max_bytes)?;
         }
@@ -271,13 +279,19 @@ impl SftpFileTransfer {
             .await
             .map_err(|error| transfer_failed(format!("failed to close remote source: {error}")))?;
 
-        if transfer.overwrite && fs::try_exists(&transfer.destination).await.map_err(|error| {
-            transfer_failed(format!("failed to recheck local destination: {error}"))
-        })? {
+        if transfer.overwrite
+            && fs::try_exists(&transfer.destination)
+                .await
+                .map_err(|error| {
+                    transfer_failed(format!("failed to recheck local destination: {error}"))
+                })?
+        {
             reject_local_symlink_destination(&transfer.destination).await?;
-            fs::remove_file(&transfer.destination).await.map_err(|error| {
-                transfer_failed(format!("failed to replace local destination: {error}"))
-            })?;
+            fs::remove_file(&transfer.destination)
+                .await
+                .map_err(|error| {
+                    transfer_failed(format!("failed to replace local destination: {error}"))
+                })?;
         }
 
         if let Err(error) = fs::rename(&temp_destination, &transfer.destination).await {
@@ -361,9 +375,8 @@ async fn authorize_remote_path(
                 format!("failed to canonicalize configured remote root {root}: {error}"),
             )
         })?;
-        let canonical = normalize_posix_absolute(&canonical).map_err(|error| {
-            AppError::new(ErrorCode::InvalidConfiguration, error.message)
-        })?;
+        let canonical = normalize_posix_absolute(&canonical)
+            .map_err(|error| AppError::new(ErrorCode::InvalidConfiguration, error.message))?;
         if canonical == "/" {
             return Err(AppError::new(
                 ErrorCode::InvalidConfiguration,
@@ -380,11 +393,15 @@ async fn authorize_remote_path(
     let canonical_candidate = if exists {
         sftp.canonicalize(normalized.clone())
             .await
-            .map_err(|error| transfer_failed(format!("failed to canonicalize remote path: {error}")))?
+            .map_err(|error| {
+                transfer_failed(format!("failed to canonicalize remote path: {error}"))
+            })?
     } else if allow_missing_leaf {
         let (parent, leaf) = split_parent_leaf(&normalized)?;
         let canonical_parent = sftp.canonicalize(parent.clone()).await.map_err(|error| {
-            transfer_failed(format!("failed to canonicalize remote parent {parent}: {error}"))
+            transfer_failed(format!(
+                "failed to canonicalize remote parent {parent}: {error}"
+            ))
         })?;
         join_posix(&normalize_posix_absolute(&canonical_parent)?, &leaf)
     } else {
