@@ -1,6 +1,5 @@
 use std::collections::BTreeMap;
 
-use anyhow::{bail, Context, Result};
 use regex::Regex;
 use serde_json::Value;
 
@@ -8,33 +7,40 @@ use crate::config::Config;
 use crate::domain::{
     CommandSpec, ExecutionOperation, ExecutionPlan, ExecutionTemplate, TaskRequest, TaskSpec,
 };
+use crate::error::{AppError, AppResult, ErrorCode};
 use crate::policy::{DefaultPolicyEngine, PolicyEngine};
 use crate::validation::{DefaultRequestValidator, RequestValidator};
 
 /// Converts validated, authorized intent into an executable plan.
 /// Concrete executors and transports are deliberately outside this boundary.
 pub trait TaskPlanner {
-    fn plan(&self, request: &TaskRequest, task: &TaskSpec) -> Result<ExecutionPlan>;
+    fn plan(&self, request: &TaskRequest, task: &TaskSpec) -> AppResult<ExecutionPlan>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DefaultTaskPlanner;
 
 impl TaskPlanner for DefaultTaskPlanner {
-    fn plan(&self, request: &TaskRequest, task: &TaskSpec) -> Result<ExecutionPlan> {
+    fn plan(&self, request: &TaskRequest, task: &TaskSpec) -> AppResult<ExecutionPlan> {
         let operation = match &task.execution {
             ExecutionTemplate::Command { program, args } => {
                 if program.trim().is_empty() {
-                    bail!("task command program must not be empty");
+                    return Err(AppError::new(
+                        ErrorCode::InvalidTaskDefinition,
+                        "task command program must not be empty",
+                    ));
                 }
                 if program.contains("{{") || program.contains("}}") {
-                    bail!("task command program must be static");
+                    return Err(AppError::new(
+                        ErrorCode::InvalidTaskDefinition,
+                        "task command program must be static",
+                    ));
                 }
 
                 let args = args
                     .iter()
                     .map(|arg| render_template(arg, &request.parameters))
-                    .collect::<Result<Vec<_>>>()?;
+                    .collect::<AppResult<Vec<_>>>()?;
 
                 ExecutionOperation::Command {
                     command: CommandSpec {
@@ -90,26 +96,30 @@ where
     E: PolicyEngine,
     P: TaskPlanner,
 {
-    pub fn prepare(&self, request: &TaskRequest) -> Result<ExecutionPlan> {
-        let target_policy = self
-            .config
-            .target_policy(&request.target)
-            .with_context(|| format!("unknown target: {}", request.target.0))?;
+    pub fn prepare(&self, request: &TaskRequest) -> AppResult<ExecutionPlan> {
+        let target_policy = self.config.target_policy(&request.target).ok_or_else(|| {
+            AppError::new(
+                ErrorCode::UnknownTarget,
+                format!("unknown target: {}", request.target.0),
+            )
+        })?;
 
         // Authorize the intent before resolving task implementation details.
         self.policy.authorize(request, &target_policy)?;
 
-        let task = self
-            .config
-            .task_spec(&request.task)
-            .with_context(|| format!("unknown task: {}", request.task))?;
+        let task = self.config.task_spec(&request.task).ok_or_else(|| {
+            AppError::new(
+                ErrorCode::UnknownTask,
+                format!("unknown task: {}", request.task),
+            )
+        })?;
 
         self.validator.validate(request, &task.definition)?;
         self.planner.plan(request, &task)
     }
 }
 
-fn render_template(template: &str, parameters: &BTreeMap<String, Value>) -> Result<String> {
+fn render_template(template: &str, parameters: &BTreeMap<String, Value>) -> AppResult<String> {
     let placeholder =
         Regex::new(r"\{\{([a-zA-Z0-9_.-]+)\}\}").expect("static placeholder regex must be valid");
     let mut rendered = String::with_capacity(template.len());
@@ -125,9 +135,12 @@ fn render_template(template: &str, parameters: &BTreeMap<String, Value>) -> Resu
 
         rendered.push_str(&template[last..full_match.start()]);
         let name = name_match.as_str();
-        let value = parameters
-            .get(name)
-            .with_context(|| format!("missing value for task placeholder: {name}"))?;
+        let value = parameters.get(name).ok_or_else(|| {
+            AppError::new(
+                ErrorCode::InvalidTaskDefinition,
+                format!("missing value for task placeholder: {name}"),
+            )
+        })?;
         rendered.push_str(&render_parameter(value)?);
         last = full_match.end();
     }
@@ -135,18 +148,24 @@ fn render_template(template: &str, parameters: &BTreeMap<String, Value>) -> Resu
     rendered.push_str(&template[last..]);
 
     if rendered.contains("{{") || rendered.contains("}}") {
-        bail!("invalid or unresolved task placeholder");
+        return Err(AppError::new(
+            ErrorCode::InvalidTaskDefinition,
+            "invalid or unresolved task placeholder",
+        ));
     }
 
     Ok(rendered)
 }
 
-fn render_parameter(value: &Value) -> Result<String> {
+fn render_parameter(value: &Value) -> AppResult<String> {
     match value {
         Value::String(value) => Ok(value.clone()),
         Value::Number(value) => Ok(value.to_string()),
         Value::Bool(value) => Ok(value.to_string()),
-        _ => bail!("task placeholders only support scalar parameter values"),
+        _ => Err(AppError::new(
+            ErrorCode::InvalidParameter,
+            "task placeholders only support scalar parameter values",
+        )),
     }
 }
 
@@ -223,13 +242,13 @@ tasks:
     }
 
     #[test]
-    fn rejects_parameter_before_planning() {
+    fn rejects_parameter_before_planning_with_stable_code() {
         let config = config();
         let error = PlanningService::new(&config)
             .prepare(&request("demo; shutdown -h now"))
             .unwrap_err();
 
-        assert!(error.to_string().contains("allowed pattern"));
+        assert_eq!(error.code, ErrorCode::InvalidParameter);
     }
 
     #[test]
@@ -247,7 +266,17 @@ tasks:
             .prepare(&request("demo.service"))
             .unwrap_err();
 
-        assert!(error.to_string().contains("not allowed"));
+        assert_eq!(error.code, ErrorCode::TaskNotAllowed);
+    }
+
+    #[test]
+    fn returns_unknown_target_code() {
+        let config = config();
+        let mut request = request("demo.service");
+        request.target = TargetId("missing".to_owned());
+
+        let error = PlanningService::new(&config).prepare(&request).unwrap_err();
+        assert_eq!(error.code, ErrorCode::UnknownTarget);
     }
 
     #[test]
@@ -270,6 +299,7 @@ tasks:
             parameters: BTreeMap::from([("program".to_owned(), json!("sh"))]),
         };
 
-        assert!(DefaultTaskPlanner.plan(&request, &task).is_err());
+        let error = DefaultTaskPlanner.plan(&request, &task).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidTaskDefinition);
     }
 }

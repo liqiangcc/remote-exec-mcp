@@ -1,46 +1,58 @@
 use std::path::{Component, Path};
 
-use anyhow::{bail, Result};
-
 use crate::domain::{TargetPolicy, TaskRequest};
+use crate::error::{AppError, AppResult, ErrorCode};
 
 pub trait PolicyEngine {
-    fn authorize(&self, request: &TaskRequest, policy: &TargetPolicy) -> Result<()>;
+    fn authorize(&self, request: &TaskRequest, policy: &TargetPolicy) -> AppResult<()>;
 }
 
 #[derive(Debug, Default, Clone, Copy)]
 pub struct DefaultPolicyEngine;
 
 impl PolicyEngine for DefaultPolicyEngine {
-    fn authorize(&self, request: &TaskRequest, policy: &TargetPolicy) -> Result<()> {
+    fn authorize(&self, request: &TaskRequest, policy: &TargetPolicy) -> AppResult<()> {
         ensure_task_allowed(policy, &request.task)
     }
 }
 
-pub fn ensure_task_allowed(policy: &TargetPolicy, task: &str) -> Result<()> {
+pub fn ensure_task_allowed(policy: &TargetPolicy, task: &str) -> AppResult<()> {
     if policy.allowed_tasks.contains(task) {
         return Ok(());
     }
-    bail!("task is not allowed for this target")
+
+    Err(AppError::new(
+        ErrorCode::TaskNotAllowed,
+        "task is not allowed for this target",
+    ))
 }
 
-pub fn ensure_remote_path_allowed(path: &str, roots: &[String]) -> Result<()> {
+pub fn ensure_remote_path_allowed(path: &str, roots: &[String]) -> AppResult<()> {
     let candidate = Path::new(path);
     if candidate
         .components()
         .any(|component| matches!(component, Component::ParentDir))
     {
-        bail!("parent path traversal is not allowed")
+        return Err(AppError::new(
+            ErrorCode::InvalidRequest,
+            "parent path traversal is not allowed",
+        ));
     }
     if !candidate.is_absolute() {
-        bail!("remote path must be absolute")
+        return Err(AppError::new(
+            ErrorCode::InvalidRequest,
+            "remote path must be absolute",
+        ));
     }
 
     let allowed = roots
         .iter()
         .any(|root| candidate.starts_with(Path::new(root)));
     if !allowed {
-        bail!("remote path is outside configured roots")
+        return Err(AppError::new(
+            ErrorCode::InvalidRequest,
+            "remote path is outside configured roots",
+        ));
     }
     Ok(())
 }
@@ -68,7 +80,7 @@ mod tests {
     }
 
     #[test]
-    fn denies_unconfigured_task() {
+    fn denies_unconfigured_task_with_stable_code() {
         let policy = TargetPolicy::default();
         let request = TaskRequest {
             target: TargetId("test".to_owned()),
@@ -76,13 +88,15 @@ mod tests {
             parameters: BTreeMap::new(),
         };
 
-        assert!(DefaultPolicyEngine.authorize(&request, &policy).is_err());
+        let error = DefaultPolicyEngine.authorize(&request, &policy).unwrap_err();
+        assert_eq!(error.code, ErrorCode::TaskNotAllowed);
     }
 
     #[test]
     fn rejects_parent_traversal() {
         let roots = vec!["/opt/apps".to_string()];
-        assert!(ensure_remote_path_allowed("/opt/apps/../etc/passwd", &roots).is_err());
+        let error = ensure_remote_path_allowed("/opt/apps/../etc/passwd", &roots).unwrap_err();
+        assert_eq!(error.code, ErrorCode::InvalidRequest);
     }
 
     #[test]
