@@ -1,3 +1,11 @@
+runtime:
+  # Global fail-fast limit for active remote operations. Defaults to 4.
+  max_concurrent_operations: 4
+  # Audit is disabled unless explicitly configured.
+  audit:
+    type: jsonl
+    path: ./data/audit.jsonl
+
 targets:
   local-test:
     transport:
