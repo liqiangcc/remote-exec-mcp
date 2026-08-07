@@ -251,6 +251,8 @@ targets:
         let TargetTransportConfig::Ssh { auth, .. } = config
             .target_transport(&TargetId("test".to_owned()))
             .unwrap();
-        assert!(matches!(auth, AuthConfig::Password { secret_ref } if secret_ref == "env:TEST_SSH_PASSWORD"));
+        assert!(
+            matches!(auth, AuthConfig::Password { secret_ref } if secret_ref == "env:TEST_SSH_PASSWORD")
+        );
     }
 }
