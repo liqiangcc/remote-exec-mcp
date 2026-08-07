@@ -45,7 +45,9 @@ fn default_max_concurrent_operations() -> usize {
 pub enum AuditConfig {
     #[default]
     Disabled,
-    Jsonl { path: String },
+    Jsonl {
+        path: String,
+    },
 }
 
 #[derive(Debug, Clone, Deserialize)]
