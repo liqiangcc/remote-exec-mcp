@@ -63,14 +63,18 @@ pub struct DownloadFileArgs {
 
 #[tool_router(server_handler)]
 impl RemoteExecMcp {
-    #[tool(description = "List configured remote targets. This is read-only and performs no network access.")]
+    #[tool(
+        description = "List configured remote targets. This is read-only and performs no network access."
+    )]
     async fn list_targets(&self) -> CallToolResult {
         CallToolResult::structured(json!({
             "targets": self.runtime.list_targets().into_iter().map(|target| target.0).collect::<Vec<_>>()
         }))
     }
 
-    #[tool(description = "Check whether an allowed target can be securely connected to over SSH, including host-key and authentication verification.")]
+    #[tool(
+        description = "Check whether an allowed target can be securely connected to over SSH, including host-key and authentication verification."
+    )]
     async fn check_target(&self, Parameters(args): Parameters<TargetArgs>) -> CallToolResult {
         match self.runtime.check_target(&TargetId(args.target)).await {
             Ok(info) => CallToolResult::structured(json!({
@@ -81,7 +85,9 @@ impl RemoteExecMcp {
         }
     }
 
-    #[tool(description = "List only the declarative tasks authorized for a target. Globally defined but disallowed tasks are not exposed.")]
+    #[tool(
+        description = "List only the declarative tasks authorized for a target. Globally defined but disallowed tasks are not exposed."
+    )]
     async fn list_tasks(&self, Parameters(args): Parameters<TargetArgs>) -> CallToolResult {
         match self.runtime.list_tasks(&TargetId(args.target)) {
             Ok(tasks) => CallToolResult::structured(json!({ "tasks": tasks })),
@@ -89,7 +95,9 @@ impl RemoteExecMcp {
         }
     }
 
-    #[tool(description = "Execute an authorized declarative task on a target. The tool never accepts a raw shell command; policy, typed validation and planning run before SSH execution.")]
+    #[tool(
+        description = "Execute an authorized declarative task on a target. The tool never accepts a raw shell command; policy, typed validation and planning run before SSH execution."
+    )]
     async fn run_task(&self, Parameters(args): Parameters<RunTaskArgs>) -> CallToolResult {
         match self
             .runtime
@@ -101,7 +109,9 @@ impl RemoteExecMcp {
         }
     }
 
-    #[tool(description = "Upload one local file to an authorized remote path using SFTP. Local and remote allowlists, size limits and overwrite policy are enforced.")]
+    #[tool(
+        description = "Upload one local file to an authorized remote path using SFTP. Local and remote allowlists, size limits and overwrite policy are enforced."
+    )]
     async fn upload_file(&self, Parameters(args): Parameters<UploadFileArgs>) -> CallToolResult {
         match self
             .runtime
@@ -120,8 +130,13 @@ impl RemoteExecMcp {
         }
     }
 
-    #[tool(description = "Download one authorized remote file using SFTP. Remote and local allowlists, size limits and overwrite policy are enforced.")]
-    async fn download_file(&self, Parameters(args): Parameters<DownloadFileArgs>) -> CallToolResult {
+    #[tool(
+        description = "Download one authorized remote file using SFTP. Remote and local allowlists, size limits and overwrite policy are enforced."
+    )]
+    async fn download_file(
+        &self,
+        Parameters(args): Parameters<DownloadFileArgs>,
+    ) -> CallToolResult {
         match self
             .runtime
             .download_file(
