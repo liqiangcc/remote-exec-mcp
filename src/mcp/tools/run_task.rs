@@ -85,10 +85,7 @@ mod tests {
     struct StubUseCase;
 
     impl TaskExecutionUseCase for StubUseCase {
-        async fn execute(
-            &self,
-            request: TaskExecutionRequest,
-        ) -> AppResult<TaskExecutionOutcome> {
+        async fn execute(&self, request: TaskExecutionRequest) -> AppResult<TaskExecutionOutcome> {
             assert_eq!(request.target, "test");
             assert_eq!(request.task, "status");
             Ok(TaskExecutionOutcome {
