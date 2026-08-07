@@ -25,6 +25,11 @@ pub enum ErrorCode {
     AuthenticationFailed,
     ExecutionFailed,
     ExecutionTimeout,
+    TransferFailed,
+    TransferTimeout,
+    TransferTooLarge,
+    TransferPathDenied,
+    DestinationExists,
     Internal,
 }
 
@@ -46,6 +51,11 @@ impl ErrorCode {
             Self::AuthenticationFailed => "authentication_failed",
             Self::ExecutionFailed => "execution_failed",
             Self::ExecutionTimeout => "execution_timeout",
+            Self::TransferFailed => "transfer_failed",
+            Self::TransferTimeout => "transfer_timeout",
+            Self::TransferTooLarge => "transfer_too_large",
+            Self::TransferPathDenied => "transfer_path_denied",
+            Self::DestinationExists => "destination_exists",
             Self::Internal => "internal",
         }
     }
@@ -100,6 +110,14 @@ mod tests {
         );
         assert_eq!(ErrorCode::ExecutionFailed.as_str(), "execution_failed");
         assert_eq!(ErrorCode::ExecutionTimeout.as_str(), "execution_timeout");
+        assert_eq!(ErrorCode::TransferFailed.as_str(), "transfer_failed");
+        assert_eq!(ErrorCode::TransferTimeout.as_str(), "transfer_timeout");
+        assert_eq!(ErrorCode::TransferTooLarge.as_str(), "transfer_too_large");
+        assert_eq!(
+            ErrorCode::TransferPathDenied.as_str(),
+            "transfer_path_denied"
+        );
+        assert_eq!(ErrorCode::DestinationExists.as_str(), "destination_exists");
     }
 
     #[test]

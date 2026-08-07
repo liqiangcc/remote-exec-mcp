@@ -25,8 +25,8 @@
 - [x] connection timeout
 - [x] SSH command executor
 - [x] bounded stdout/stderr
-- [ ] SFTP/SCP file transfer
-- [ ] transfer size/path limits
+- [x] SFTP file transfer
+- [x] transfer size/path limits
 
 ## Phase 3 — MCP adapter
 - [ ] list_targets
@@ -43,6 +43,7 @@
 - [ ] password/SSH-agent providers
 - [ ] integration tests with disposable SSH server
 - [ ] threat-model tests
+- [ ] atomic overwrite semantics / orphan temp cleanup for interrupted transfers
 
 ## Phase 5 — Capability adapters/workflows
 - [ ] systemd adapter

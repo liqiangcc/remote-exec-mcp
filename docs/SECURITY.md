@@ -73,13 +73,24 @@ A future explicitly shell-backed task must be a separate higher-risk capability 
 
 ## Filesystem safety
 
-Before transfer:
-- normalize/validate absolute paths;
-- reject parent traversal;
-- enforce configured upload/download roots;
-- handle symlink escape where the backend can verify it;
-- apply maximum file size;
-- avoid overwrite by default unless explicitly allowed.
+The file-transfer adapter uses SFTP over an already-authenticated SSH session. Policy owns the allowed upload/download roots and maximum byte count; the SFTP adapter only enforces those constraints.
+
+Remote paths are treated as POSIX paths independent of the MCP host operating system. Before transfer the adapter:
+- requires absolute remote paths;
+- rejects `..` traversal and NUL bytes;
+- rejects `/` as a configured root;
+- canonicalizes configured roots on the remote server;
+- canonicalizes an existing remote source/destination, or the parent directory for a new upload;
+- re-checks the canonical path against the canonical roots, preventing symlink escape;
+- enforces `max_transfer_bytes` from metadata when available and again while streaming;
+- transfers through bounded timeouts;
+- avoids overwrite by default.
+
+Uploads first write to a uniquely named temporary file in the authorized destination directory and only rename it into place after the byte limit and sync checks succeed. Downloads similarly use a local temporary file so ordinary failures do not expose a partially written destination.
+
+Overwrite is intentionally explicit. Current cross-platform replacement semantics may remove the old destination immediately before rename; fully atomic replacement and cleanup of orphan temporary files after forced interruption are production-hardening work.
+
+The infrastructure `FileTransfer` API currently accepts local filesystem paths, but the future MCP adapter must not expose arbitrary model-controlled local paths. Upload/download tools should use a trusted staging directory or connector-provided file handles and apply a separate local-path boundary before calling this adapter.
 
 ## Remote account
 
@@ -107,5 +118,6 @@ These must never silently appear in the default profile:
 - unrestricted sudo;
 - arbitrary environment injection;
 - unrestricted remote path access;
+- arbitrary model-controlled local filesystem paths;
 - host-key verification disablement;
 - model-controlled changes to policy/credentials.
