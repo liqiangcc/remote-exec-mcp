@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use rmcp::{
-    handler::server::wrapper::Parameters, tool, tool_handler, tool_router, ErrorData as McpError,
-    ServerHandler,
+    handler::server::{router::tool::ToolRouter, wrapper::Parameters}, tool, tool_handler,
+    tool_router, ErrorData as McpError, ServerHandler,
 };
 use schemars::JsonSchema;
 use serde::Deserialize;
@@ -15,51 +15,18 @@ use crate::runtime::RemoteExecService;
 #[derive(Clone)]
 pub struct RemoteExecMcp {
     app: RemoteExecService,
-}
-
-impl RemoteExecMcp {
-    pub fn new(app: RemoteExecService) -> Self {
-        Self { app }
-    }
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct TargetParams {
-    target: String,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct RunTaskParams {
-    target: String,
-    task: String,
-    #[serde(default)]
-    parameters: BTreeMap<String, Value>,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct UploadFileParams {
-    target: String,
-    /// Local path on the MCP server host. It must be inside an operator-configured local upload root.
-    source: String,
-    /// Absolute remote destination path. It must be inside an operator-configured remote upload root.
-    destination: String,
-    #[serde(default)]
-    overwrite: bool,
-}
-
-#[derive(Debug, Deserialize, JsonSchema)]
-struct DownloadFileParams {
-    target: String,
-    /// Absolute remote source path. It must be inside an operator-configured remote download root.
-    source: String,
-    /// Local path on the MCP server host. Its parent must be inside an operator-configured local download root.
-    destination: String,
-    #[serde(default)]
-    overwrite: bool,
+    tool_router: ToolRouter<Self>,
 }
 
 #[tool_router]
 impl RemoteExecMcp {
+    pub fn new(app: RemoteExecService) -> Self {
+        Self {
+            app,
+            tool_router: Self::tool_router(),
+        }
+    }
+
     #[tool(description = "List configured remote targets. No network connection is made.")]
     async fn list_targets(&self) -> Result<String, McpError> {
         let targets: Vec<String> = self
@@ -177,6 +144,41 @@ impl RemoteExecMcp {
             .map_err(map_app_error)?;
         to_json(&json!({ "bytes_transferred": result.bytes_transferred }))
     }
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct TargetParams {
+    target: String,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct RunTaskParams {
+    target: String,
+    task: String,
+    #[serde(default)]
+    parameters: BTreeMap<String, Value>,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct UploadFileParams {
+    target: String,
+    /// Local path on the MCP server host. It must be inside an operator-configured local upload root.
+    source: String,
+    /// Absolute remote destination path. It must be inside an operator-configured remote upload root.
+    destination: String,
+    #[serde(default)]
+    overwrite: bool,
+}
+
+#[derive(Debug, Deserialize, JsonSchema)]
+struct DownloadFileParams {
+    target: String,
+    /// Absolute remote source path. It must be inside an operator-configured remote download root.
+    source: String,
+    /// Local path on the MCP server host. Its parent must be inside an operator-configured local download root.
+    destination: String,
+    #[serde(default)]
+    overwrite: bool,
 }
 
 #[tool_handler]
