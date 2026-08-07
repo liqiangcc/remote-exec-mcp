@@ -65,11 +65,26 @@ impl RemoteExecService {
         let target_config = match self.target(target) {
             Ok(target_config) => target_config,
             Err(app_error) => {
-                self.record_rejected(&request_id, target, "check_target", None, &app_error, None);
+                self.record_rejected(
+                    &request_id,
+                    target,
+                    "check_target",
+                    None,
+                    &[],
+                    &app_error,
+                    None,
+                );
                 return Err(app_error);
             }
         };
-        let operation = self.begin_operation(request_id, target, "check_target", None, None)?;
+        let operation = self.begin_operation(
+            request_id,
+            target,
+            "check_target",
+            None,
+            Vec::new(),
+            None,
+        )?;
 
         let result = SshTransport::new(EnvSecretProvider)
             .check(&target_config.transport)
@@ -80,6 +95,7 @@ impl RemoteExecService {
 
     pub async fn run_task(&self, request: &TaskRequest) -> AppResult<ExecutionResult> {
         let request_id = next_request_id();
+        let parameter_names: Vec<String> = request.parameters.keys().cloned().collect();
         let plan = match PlanningService::new(&self.config).prepare(request) {
             Ok(plan) => plan,
             Err(app_error) => {
@@ -93,6 +109,7 @@ impl RemoteExecService {
                     &request.target,
                     "run_task",
                     Some(&request.task),
+                    &parameter_names,
                     &app_error,
                     policy_decision,
                 );
@@ -107,6 +124,7 @@ impl RemoteExecService {
                     &request.target,
                     "run_task",
                     Some(&request.task),
+                    &parameter_names,
                     &app_error,
                     Some("allowed"),
                 );
@@ -118,6 +136,7 @@ impl RemoteExecService {
             &request.target,
             "run_task",
             Some(&request.task),
+            parameter_names,
             Some("allowed"),
         )?;
 
@@ -156,14 +175,30 @@ impl RemoteExecService {
         let target_config = match self.target(target) {
             Ok(target_config) => target_config,
             Err(app_error) => {
-                self.record_rejected(&request_id, target, "upload_file", None, &app_error, None);
+                self.record_rejected(
+                    &request_id,
+                    target,
+                    "upload_file",
+                    None,
+                    &[],
+                    &app_error,
+                    None,
+                );
                 return Err(app_error);
             }
         };
         let policy = match self.policy(target) {
             Ok(policy) => policy,
             Err(app_error) => {
-                self.record_rejected(&request_id, target, "upload_file", None, &app_error, None);
+                self.record_rejected(
+                    &request_id,
+                    target,
+                    "upload_file",
+                    None,
+                    &[],
+                    &app_error,
+                    None,
+                );
                 return Err(app_error);
             }
         };
@@ -171,7 +206,15 @@ impl RemoteExecService {
             ensure_existing_local_path_allowed(&transfer.source, &policy.allowed_local_upload_roots)
                 .await
         {
-            self.record_rejected(&request_id, target, "upload_file", None, &app_error, None);
+            self.record_rejected(
+                &request_id,
+                target,
+                "upload_file",
+                None,
+                &[],
+                &app_error,
+                None,
+            );
             return Err(app_error);
         }
         let constraints = match transfer_constraints(
@@ -181,11 +224,26 @@ impl RemoteExecService {
         ) {
             Ok(constraints) => constraints,
             Err(app_error) => {
-                self.record_rejected(&request_id, target, "upload_file", None, &app_error, None);
+                self.record_rejected(
+                    &request_id,
+                    target,
+                    "upload_file",
+                    None,
+                    &[],
+                    &app_error,
+                    None,
+                );
                 return Err(app_error);
             }
         };
-        let operation = self.begin_operation(request_id, target, "upload_file", None, None)?;
+        let operation = self.begin_operation(
+            request_id,
+            target,
+            "upload_file",
+            None,
+            Vec::new(),
+            None,
+        )?;
 
         let result = async {
             let transport = SshTransport::new(EnvSecretProvider);
@@ -209,14 +267,30 @@ impl RemoteExecService {
         let target_config = match self.target(target) {
             Ok(target_config) => target_config,
             Err(app_error) => {
-                self.record_rejected(&request_id, target, "download_file", None, &app_error, None);
+                self.record_rejected(
+                    &request_id,
+                    target,
+                    "download_file",
+                    None,
+                    &[],
+                    &app_error,
+                    None,
+                );
                 return Err(app_error);
             }
         };
         let policy = match self.policy(target) {
             Ok(policy) => policy,
             Err(app_error) => {
-                self.record_rejected(&request_id, target, "download_file", None, &app_error, None);
+                self.record_rejected(
+                    &request_id,
+                    target,
+                    "download_file",
+                    None,
+                    &[],
+                    &app_error,
+                    None,
+                );
                 return Err(app_error);
             }
         };
@@ -226,7 +300,15 @@ impl RemoteExecService {
         )
         .await
         {
-            self.record_rejected(&request_id, target, "download_file", None, &app_error, None);
+            self.record_rejected(
+                &request_id,
+                target,
+                "download_file",
+                None,
+                &[],
+                &app_error,
+                None,
+            );
             return Err(app_error);
         }
         let constraints = match transfer_constraints(
@@ -236,11 +318,26 @@ impl RemoteExecService {
         ) {
             Ok(constraints) => constraints,
             Err(app_error) => {
-                self.record_rejected(&request_id, target, "download_file", None, &app_error, None);
+                self.record_rejected(
+                    &request_id,
+                    target,
+                    "download_file",
+                    None,
+                    &[],
+                    &app_error,
+                    None,
+                );
                 return Err(app_error);
             }
         };
-        let operation = self.begin_operation(request_id, target, "download_file", None, None)?;
+        let operation = self.begin_operation(
+            request_id,
+            target,
+            "download_file",
+            None,
+            Vec::new(),
+            None,
+        )?;
 
         let result = async {
             let transport = SshTransport::new(EnvSecretProvider);
@@ -261,6 +358,7 @@ impl RemoteExecService {
         target: &TargetId,
         operation: &str,
         task: Option<&str>,
+        parameter_names: Vec<String>,
         policy_decision: Option<&str>,
     ) -> AppResult<OperationContext> {
         let permit = self.limiter.try_acquire()?;
@@ -269,6 +367,7 @@ impl RemoteExecService {
             target: target.0.clone(),
             operation: operation.to_owned(),
             task: task.map(str::to_owned),
+            parameter_names,
             policy_decision: policy_decision.map(str::to_owned),
             started_at: Instant::now(),
             _permit: permit,
@@ -330,6 +429,7 @@ impl RemoteExecService {
         target: &TargetId,
         operation: &str,
         task: Option<&str>,
+        parameter_names: &[String],
         app_error: &AppError,
         policy_decision: Option<&str>,
     ) {
@@ -339,6 +439,7 @@ impl RemoteExecService {
             target: target.0.clone(),
             operation: operation.to_owned(),
             task: task.map(str::to_owned),
+            parameter_names: parameter_names.to_vec(),
             policy_decision: policy_decision.map(str::to_owned),
             outcome: "rejected".to_owned(),
             error_code: Some(app_error.code.as_str().to_owned()),
@@ -384,6 +485,7 @@ struct OperationContext {
     target: String,
     operation: String,
     task: Option<String>,
+    parameter_names: Vec<String>,
     policy_decision: Option<String>,
     started_at: Instant,
     _permit: OwnedSemaphorePermit,
@@ -403,6 +505,7 @@ impl OperationContext {
             target: self.target.clone(),
             operation: self.operation.clone(),
             task: self.task.clone(),
+            parameter_names: self.parameter_names.clone(),
             policy_decision: self.policy_decision.clone(),
             outcome: outcome.to_owned(),
             error_code: error_code.map(|code| code.as_str().to_owned()),
