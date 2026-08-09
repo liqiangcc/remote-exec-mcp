@@ -1,0 +1,27 @@
+name: Generate Cargo.lock
+
+on:
+  push:
+    branches:
+      - chore/lock-cargo-dependencies
+
+permissions:
+  contents: read
+
+jobs:
+  generate-lockfile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Generate lockfile
+        run: cargo generate-lockfile
+      - name: Verify locked resolution
+        run: cargo check --locked --all-targets --all-features
+      - name: Upload Cargo.lock
+        uses: actions/upload-artifact@v4
+        with:
+          name: cargo-lock
+          path: Cargo.lock
+          if-no-files-found: error
+          retention-days: 1
